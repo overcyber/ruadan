@@ -24,14 +24,14 @@ Ruadan can be installed on Kali Linux using the following commands:
     git clone https://github.com/overcyber/ruadan
     cd ruadan
     python Ruadan2.py -install
-    vanquish --help
+    ruadan --help
 
 [![asciicast](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX.png)](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX)
 
 Once Ruadan is installed you can scan hosts by leveraging the best of breed Kali Linux tools:
  
     echo 192.168.126.133 >> test.txt
-    vanquish -hostFile test.txt -logging
+    ruadan -hostFile test.txt -logging
     echo review the results!
     cd test
     cd 192_168_126_133
