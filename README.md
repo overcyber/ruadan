@@ -1,15 +1,15 @@
 # Ruadan  
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/overcyber/ruadan/master/ruadan.png" title="Vanquish is new name Ruadan - Kali Linux Enumeration Orchestrator"/>
+  <img src="https://raw.githubusercontent.com/overcyber/ruadan/master/ruadan.png" title="Ruadan is new Vanquish name  - Kali Linux Enumeration Orchestrator"/>
 </p>
 
-Vanquish is a Kali Linux based Enumeration Orchestrator built in Python.  Vanquish leverages the opensource enumeration tools on Kali to perform multiple active information gathering phases. The results of each phase are fed into the next phase to identify vulnerabilities that could be leveraged for a remote shell.  
+Ruadan is a Kali Linux based Enumeration Orchestrator built in Python.  Ruadan leverages the opensource enumeration tools on Kali to perform multiple active information gathering phases. The results of each phase are fed into the next phase to identify vulnerabilities that could be leveraged for a remote shell.  
 
 [![asciicast](https://asciinema.org/a/AoAay13XL1qJuy35jt45FCIzp.png)](https://asciinema.org/a/AoAay13XL1qJuy35jt45FCIzp)
 
-## Vanquish Features
-So what is so special about Vanquish compared to other enumeration scripts?
+## Ruadan Features
+So what is so special about Ruadan compared to other enumeration scripts?
 
 1.	**Multi-threaded** – Runs multiple commands and scans multiple hosts simultaneously.
 2.	**Configurable** – All commands are configured in a separate .ini file for ease of adjustment
@@ -19,16 +19,16 @@ So what is so special about Vanquish compared to other enumeration scripts?
 
 ## Getting Started
 
-Vanquish can be installed on Kali Linux using the following commands:
+Ruadan can be installed on Kali Linux using the following commands:
 
     git clone https://github.com/overcyber/ruadan
     cd ruadan
-    python Vanquish2.py -install
+    python Ruadan2.py -install
     vanquish --help
 
 [![asciicast](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX.png)](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX)
 
-Once Vanquish is installed you can scan hosts by leveraging the best of breed Kali Linux tools:
+Once Ruadan is installed you can scan hosts by leveraging the best of breed Kali Linux tools:
  
     echo 192.168.126.133 >> test.txt
     vanquish -hostFile test.txt -logging
@@ -37,7 +37,7 @@ Once Vanquish is installed you can scan hosts by leveraging the best of breed Ka
     cd 192_168_126_133
     ls -la
 
-## What Kali Tools does Vanquish leverage?
+## What Kali Tools does Ruadan leverage?
 | NMap | Hydra | Nikto | Metasploit |
 | Gobuster | Dirb | Exploitdb | Nbtscan |
 | Ntpq | Enum4linux | Smbclient | Rpcclient |
@@ -47,25 +47,25 @@ Once Vanquish is installed you can scan hosts by leveraging the best of breed Ka
 | Wpscan | Cewl  | Curl | Mysql | Nmblookup | Searchsploit |
 | Nbtscan-unixwiz | Xprobe2 | Blindelephant | Showmount |
 
-## Running Vanquish
+## Running Ruadan
 
 - **CTRL + C**
 
     CTRL + C to exit an enumeration phase and skip to the next phase (helpful if a command is taking too long)
-    Vanquish will skip running a command again if it sees that the output files already exist.
-    If you want to re-execute a command, delete the output files (.txt,.xml,.nmap etc.) and run Vanquish again.
+    Ruadan will skip running a command again if it sees that the output files already exist.
+    If you want to re-execute a command, delete the output files (.txt,.xml,.nmap etc.) and run Ruadan again.
 
 - **CTRL + Z**
 
-    CTRL + Z to exit Vanquish.
+    CTRL + Z to exit Ruadan.
     
 - **Resume Mode**
 
-    Vanquish will skip running a command again if it sees that the output files already exist.
+    Ruadan will skip running a command again if it sees that the output files already exist.
 
 - **Re-run an enumeration command**
 
-    If you want to re-execute a command, delete the output files (.txt,.xml,.nmap etc.) and run Vanquish again.
+    If you want to re-execute a command, delete the output files (.txt,.xml,.nmap etc.) and run Ruadan again.
 
 ## Commandline Arguments
 <pre>
@@ -77,11 +77,11 @@ usage: vanquish [-h] [-install] [-outputFolder folder] [-configFile file]
                 [-threadPool threads] [-phase phase] [-noExploitSearch]
                 [-benchmarking] [-logging] [-verbose] [-debug]
 
-Vanquish is Kali Linux based Enumeration Orchestrator.
+Ruadan is Kali Linux based Enumeration Orchestrator.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -install              Install Vanquish and it's requirements
+  -install              Install Ruadan and it's requirements
   -outputFolder folder  output folder path (default: name of the host file))
   -configFile file      configuration ini file (default: config.ini)
   -attackPlanFile file  attack plan ini file (default: attackplan.ini)
@@ -114,7 +114,7 @@ optional arguments:
 
 GoBuster Max is an attack plan that will run all the web application content detection dictionaries against your targets.
 
-    Vanquish -hostFile test.txt -attackPlanFile ./attackplans/gobuster-max.ini -logging
+    Ruadan -hostFile test.txt -attackPlanFile ./attackplans/gobuster-max.ini -logging
     
 [![asciicast](https://asciinema.org/a/U6TvUgVUhLDI4zRKjLpEaY3Ps.png)](https://asciinema.org/a/U6TvUgVUhLDI4zRKjLpEaY3Ps)
 
@@ -125,7 +125,7 @@ We users love to reuse our passwords across multiple systems. As you explore a n
 This attack will use a list of known credentials for a network and test them against all hosts and services that have been discovered.
 Store the credentials in a file in the root of your scan path and name it: credentials.txt
 
-Ex. File containing host list: /root/Documents/Vanquish/myhosts.txt
+Ex. File containing host list: /root/Documents/Ruadan/myhosts.txt
     
     /root/Documents/ruadan/myhosts/credentials.txt
 
@@ -138,19 +138,19 @@ Ex. credentials.txt
 
 Note: this attack plan does NOT create the >> <output>.txt file so it can be run again and again without havingto delete the output files.  This allows new credentials to be added to the list and the network to be rescanned frequently.
 
-    python Vanquish2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/credentials.ini
+    python Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/credentials.ini
     
 **Hydra Usernames and Passwords List Scanner**
 
 This attack will use a list of known usernames and a list of known passwords for a network and test them against all hosts and services that have been discovered.
 
 Store the usernames in a file in the root of your scan path and name it: usernames.txt
-Ex. File containing host list: /root/Documents/Vanquish/myhosts.txt
+Ex. File containing host list: /root/Documents/Ruadan/myhosts.txt
 
     /root/Documents/ruadan/myhosts/usernames.txt
     
 Store the passwords in a file in the root of your scan path and name it: passwords.txt
-Ex. File containing host list: /root/Documents/Vanquish/myhosts.txt
+Ex. File containing host list: /root/Documents/Ruadan/myhosts.txt
     
     /root/Documents/ruadan/myhosts/passwords.txt
     
@@ -165,6 +165,6 @@ Passwords are stored in a similar manner in the passwords.txt file.
 
 Note: this attack plan does NOT create the >> <output>.txt file so it can be run again and again without having to delete the output files.  This allows new credentials to be added to the list and the network to be rescanned frequently.
 
-    python Vanquish2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/usernamespasswords.ini
+    python Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/usernamespasswords.ini
 # ruadan
 # ruadan
