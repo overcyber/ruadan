@@ -70,7 +70,7 @@ Once Ruadan is installed you can scan hosts by leveraging the best of breed Kali
 ## Commandline Arguments
 <pre>
 Command Line Arguments
-usage: vanquish [-h] [-install] [-outputFolder folder] [-configFile file]
+usage: ruadan [-h] [-install] [-outputFolder folder] [-configFile file]
                 [-attackPlanFile file] [-hostFile file] [-workspace workspace]
                 [-domain domain] [-dnsServer dnsServer] [-proxy proxy]
                 [-reportFile report] [-noResume] [-noColor]
