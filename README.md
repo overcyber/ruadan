@@ -6,7 +6,7 @@
 
 Ruadan is a Kali Linux based Enumeration Orchestrator built in Python.  Ruadan leverages the opensource enumeration tools on Kali to perform multiple active information gathering phases. The results of each phase are fed into the next phase to identify vulnerabilities that could be leveraged for a remote shell.  
 
-[![asciicast](https://asciinema.org/a/AoAay13XL1qJuy35jt45FCIzp.png)](https://asciinema.org/a/AoAay13XL1qJuy35jt45FCIzp)
+
 
 ## Ruadan Features
 So what is so special about Ruadan compared to other enumeration scripts?
