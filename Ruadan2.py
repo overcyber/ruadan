@@ -216,67 +216,67 @@ class Color:
     def redback():
         if Color.ENABLE_COLOR:
             return "\033[0m\033[37m\033[41m"
-	else: return ""
+        else: return ""
 
     @staticmethod
     def black():
         if Color.ENABLE_COLOR:
             return '\033[0;30m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def red():
         if Color.ENABLE_COLOR:
             return '\033[0;31m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def green():
         if Color.ENABLE_COLOR:
             return '\033[0;32m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def yellow():
         if Color.ENABLE_COLOR:
             return '\033[0;33m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def blue():
         if Color.ENABLE_COLOR:
             return '\033[0;34m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def magenta():
         if Color.ENABLE_COLOR:
             return '\033[0;35m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def cyan():
         if Color.ENABLE_COLOR:
             return '\033[0;36m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def grey():
         if Color.ENABLE_COLOR:
             return '\033[0;37m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def white():
         if Color.ENABLE_COLOR:
             return '\033[0;38m'
-	else: return ""
+        else: return ""
 
     @staticmethod
     def reset():
         if Color.ENABLE_COLOR:
             return '\033[0;39m'
-	else: return ""
+        else: return ""
 
 class Vanquish:
     def __init__(self, argv):
