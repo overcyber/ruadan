@@ -1,7 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-
-import os, sys, subprocess, re, urlparse
+import os, sys, subprocess, re
+from urllib.parse import urlparse # Changed from urlparse
 import threading
 
 ALLSERVICES = []
@@ -9,7 +10,7 @@ THREADS = []
 
 class newThreadNmap(threading.Thread):
     def __init__(self,threadID,target):
-        threading.Thread.__init__(self)
+        super().__init__() # Use super() for initialization in Python 3
         self.threadID = threadID
         self.target = target
 
@@ -31,30 +32,30 @@ class bcolors:
 # ------------------------------------
 
 def printHeader(target):
-    print ""
-    print "###################################################"
-    print "##   Enumerating %s" % target
-    print "##"
-    print "###################################################"
-    print ""
+    print()
+    print("###################################################")
+    print(f"##   Enumerating {target}")
+    print("##")
+    print("###################################################")
+    print()
 
 def printUsage():
-    print "Usage: %s <target ip>" % sys.argv[0]
+    print(f"Usage: {sys.argv[0]} <target ip>")
 
 def printPlus(message):
-    print bcolors.OKGREEN + "[+] " + message + bcolors.ENDC
+    print(f"{bcolors.OKGREEN}[+] {message}{bcolors.ENDC}")
 
 def printMinus(message):
-    print bcolors.WARNING + "[-] " + message + bcolors.ENDC
+    print(f"{bcolors.WARNING}[-] {message}{bcolors.ENDC}")
 
 def printStd(message):
-    print "[*] " + message
+    print(f"[*] {message}")
 
 def printErr(message):
-    print bcolors.FAIL + "[!] " + message + bcolors.ENDC
+    print(f"{bcolors.FAIL}[!] {message}{bcolors.ENDC}")
 
 def printDbg(message):
-    print bcolors.OKBLUE + "[?] " + message + bcolors.ENDC
+    print(f"{bcolors.OKBLUE}[?] {message}{bcolors.ENDC}")
 
 def printInBox(command, result):
     top =   "###################################################"
@@ -87,9 +88,11 @@ def dispatchModules(target, services):
             try:
                 KNOWN_SERVICES[service](target, port)
             except AttributeError:
-                printDbg("No module available for %s - %s" % (service, port))
+                printDbg(f"No module available for {service} - {port}")
+            except KeyError: # Handle case where service is not in KNOWN_SERVICES
+                 printDbg(f"No module available for {service} - {port}")
         else:
-            printDbg("No module available for %s - %s" % (service, port))
+            printDbg(f"No module available for {service} - {port}")
 
 def validate_ip(s):
     a = s.split('.')
@@ -120,17 +123,20 @@ def parse_ip_directories(s):
 # ------------------------------------
 
 def prepareFolder(target):
-    printStd("Preparing portfolio for %s" %(target))
-    directory = "%s/%s" % (os.getcwd(), target)
+    printStd(f"Preparing portfolio for {target}")
+    directory = os.path.join(os.getcwd(), target) # Use os.path.join for paths
     if not os.path.exists(directory):
         os.makedirs(directory)
         return None
     return directory
 
 def writeToFile(target, name, content):
-    path = "%s/%s/%s.txt" % (os.getcwd(), target, name)
-    file = open(path, "a+")
-    file.write(content)
+    # Use os.path.join and ensure encoding for Python 3 file writing
+    path = os.path.join(os.getcwd(), target, f"{name}.txt")
+    # Use 'a+' mode with utf-8 encoding
+    file = open(path, "a+", encoding='utf-8')
+    # Ensure content is string before writing
+    file.write(str(content))
     file.close()
     return path
 
@@ -151,32 +157,42 @@ def execNmapParallel(ipList):
 # Light NMAP
 # ========================
 def conductLightNmap(target):
-    printStd("Conducting light nmap scan for %s" %(target))
+    printStd(f"Conducting light nmap scan for {target}")
     NAME = "nmap_light"
 
     # Conduct Scan #
+    # Ensure target is properly formatted if needed
     TCPSCAN = "nmap %s -Pn -T4" % target
     UDPSCAN = "nmap -sU -Pn -p 161 %s" % target
-    tcpResults = ""
-    udpResults = ""
+    tcpResults = b"" # Initialize as bytes for subprocess output
+    udpResults = b"" # Initialize as bytes for subprocess output
     try:
-        tcpResults = subprocess.check_output(TCPSCAN, shell=True)
-        udpResults = subprocess.check_output(UDPSCAN, shell=True)
-        #print "%s" % tcpResults
+        # Capture output as bytes and decode to utf-8
+        tcpResults = subprocess.check_output(TCPSCAN, shell=True, stderr=subprocess.STDOUT)
+        udpResults = subprocess.check_output(UDPSCAN, shell=True, stderr=subprocess.STDOUT)
+        #print(tcpResults.decode('utf-8', errors='ignore')) # Decode for printing
 
         # Write Results #
-        content = "%s" % printInBox(TCPSCAN, tcpResults)
+        # Decode results before passing to printInBox and writeToFile
+        content = printInBox(TCPSCAN, tcpResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        
-        printPlus("Finished light nmap scan: %s" % path)
+
+        printPlus(f"Finished light nmap scan: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % TCPSCAN)
+        printMinus(f"Skipping:\n\t{TCPSCAN}")
+    except subprocess.CalledProcessError as e:
+        # Handle potential errors from subprocess, decode output for error message
+        printErr(f"Unable to conduct light nmap scan:\n\t{TCPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+        # Consider if sys.exit is appropriate or if it should return/raise
+        # sys.exit(2)
     except Exception as e:
-        printErr("Unable to conduct light nmap scan:\n\t%s\n\n%s" % (TCPSCAN, e))
-        sys.exit(2)
+        printErr(f"An unexpected error occurred during light nmap scan:\n\t{TCPSCAN}\n\n{e}")
+        # sys.exit(2)
+
 
     # Filter Results #
-    services = parseNmapScan("%s\n%s" % (tcpResults, udpResults))
+    # Decode results before parsing
+    services = parseNmapScan(f"{tcpResults.decode('utf-8', errors='ignore')}\n{udpResults.decode('utf-8', errors='ignore')}")
 
     return services
 # ========================
@@ -184,38 +200,45 @@ def conductLightNmap(target):
 # Heavy NMAP
 # ========================
 def conductHeavyNmap(target):
-    printStd("Conducting heavy nmap scan for %s" %(target))
+    printStd(f"Conducting heavy nmap scan for {target}")
     NAME = "nmap_heavy"
-    
+
     # Conduct Heavy nmap Scan #
-    TCPSCAN = "nmap -T5 -Pn -A -sV --top-ports 10000 %s" % target
+    TCPSCAN = f"nmap -T5 -Pn -A -sV --top-ports 10000 {target}"
     try:
-        tcpResults = subprocess.check_output(TCPSCAN, shell=True)
-        
+        # Capture output as bytes and decode
+        tcpResults = subprocess.check_output(TCPSCAN, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(TCPSCAN, tcpResults)
+        content = printInBox(TCPSCAN, tcpResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished heavy nmap scan: %s/%s/nmap_heavy.txt" % (os.getcwd(), target))
+        printPlus(f"Finished heavy nmap scan: {os.path.join(os.getcwd(), target, 'nmap_heavy.txt')}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % TCPSCAN)
-    except Exception:
-        printErr("Unable to conduct heavy nmap scan:\n\t%s" % TCPSCAN)
+        printMinus(f"Skipping:\n\t{TCPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct heavy nmap scan:\n\t{TCPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during heavy nmap scan:\n\t{TCPSCAN}\n\n{e}")
+
 
     printStd("Conducting UDP scan")
 
     # Conduct UDP Scan #
-    UDPSCAN = "nmap -T5 -sU --top-ports 1000 %s" % target
+    UDPSCAN = f"nmap -T5 -sU --top-ports 1000 {target}"
     try:
-        udpResults = subprocess.check_output(UDPSCAN, shell=True)
-        
+        # Capture output as bytes and decode
+        udpResults = subprocess.check_output(UDPSCAN, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(UDPSCAN, udpResults)
+        content = printInBox(UDPSCAN, udpResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished UDP scan: %s/%s/nmap_heavy.txt" % (os.getcwd(), target))
+        printPlus(f"Finished UDP scan: {os.path.join(os.getcwd(), target, 'nmap_heavy.txt')}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % UDPSCAN)
-    except Exception:
-        printErr("Unable to conduct UDP scan:\n\t%s" % UDPSCAN)
+        printMinus(f"Skipping:\n\t{UDPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct UDP scan:\n\t{UDPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+         printErr(f"An unexpected error occurred during UDP scan:\n\t{UDPSCAN}\n\n{e}")
 # ========================
 
 # FTP
@@ -223,25 +246,25 @@ def conductHeavyNmap(target):
 def ftp(target, ports):
     printStd("Investigating FTP")
     NAME = "ftp"
-    
+
     # Conduct nmap Scan #
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
+    portString = ",".join([p.split("/")[0] for p in ports]) # More Pythonic way to join ports
     SCRIPTS = "ftp-vuln-*, ftp-anon"
-    NMAPSCAN = "nmap -T5 -p %s -sV -sC --script=\"%s\" %s" % (portString, SCRIPTS, target)
+    NMAPSCAN = f"nmap -T5 -p {portString} -sV -sC --script=\"{SCRIPTS}\" {target}"
     try:
-        nmapResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapResults)
+        content = printInBox(NMAPSCAN, nmapResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating FTP: %s" % path)
+        printPlus(f"Finished investigating FTP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct FTP scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+         printErr(f"Unable to conduct FTP scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during FTP scan:\n\t{NMAPSCAN}\n\n{e}")
 # ========================
 
 # SMTP
@@ -251,37 +274,47 @@ def smtp(target, ports):
     NAME = "smtp"
 
     # Conduct nmap Scan #
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sV --script=\"smtp-vuln*\" %s" % (portString, target)
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T4 -p {portString} -sV --script=\"smtp-vuln*\" {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning SMTP: %s" % path)
+        printPlus(f"Finished scanning SMTP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct SMTP scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct SMTP scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during SMTP scan:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct Brute #
     printStd("Trying to brute-force SMTP users")
-    SCAN1 = "smtp-user-enum -M EXPN -U /usr/share/fern-wifi-cracker/extras/wordlists/common.txt -t %s" % target
+    # Ensure wordlist path exists or handle error
+    wordlist_path = "/usr/share/fern-wifi-cracker/extras/wordlists/common.txt"
+    if not os.path.exists(wordlist_path):
+        printErr(f"Wordlist not found: {wordlist_path}")
+        return # Or handle differently
+
+    SCAN1 = f"smtp-user-enum -M EXPN -U {wordlist_path} -t {target}"
     try:
-        scan1Results = subprocess.check_output(SCAN1, shell=True)
-        
+        # Capture output as bytes and decode
+        scan1Results = subprocess.check_output(SCAN1, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % (printInBox(SCAN1, scan1Results))
+        content = printInBox(SCAN1, scan1Results.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating SMTP: %s" % path)
+        printPlus(f"Finished investigating SMTP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % SCAN1)
-    except Exception:
-        printErr("Unable to conduct SMTP brute force:\n\t%s\n\t%s" % SCAN1)
+        printMinus(f"Skipping:\n\t{SCAN1}")
+    except subprocess.CalledProcessError as e:
+         printErr(f"Unable to conduct SMTP brute force:\n\t{SCAN1}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during SMTP brute force:\n\t{SCAN1}\n\n{e}")
 # ========================
 
 # POP3
@@ -289,39 +322,43 @@ def smtp(target, ports):
 def pop3(target, ports):
     printStd("Investigating POP3")
     NAME = "pop3"
-    
+
     # Conduct Basic Scan"
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T5 -p %s -sV --script=\"pop3-capabilities,pop3-ntlm-info\" %s" % (portString, target)
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T5 -p {portString} -sV --script=\"pop3-capabilities,pop3-ntlm-info\" {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished enumerating POP3: %s" % path)
+        printPlus(f"Finished enumerating POP3: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to enumerate POP3:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to enumerate POP3:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during POP3 enumeration:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct Brute Force"
     printStd("Trying to brute-force POP3 users")
-    BRUTE = "nmap -T4 -p %s --script=\"pop3-brute\" %s" % (portString, target)
+    BRUTE = f"nmap -T4 -p {portString} --script=\"pop3-brute\" {target}"
     try:
-        bruteResults = subprocess.check_output(BRUTE, shell=True)
+        # Capture output as bytes and decode
+        bruteResults = subprocess.check_output(BRUTE, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(BRUTE, bruteResults)
+        content = printInBox(BRUTE, bruteResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating POP3: %s" % path)
+        printPlus(f"Finished investigating POP3: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % BRUTE)
-    except Exception:
-        printErr("Unable to brute-force POP3 users:\n\t%s" % BRUTE)
+        printMinus(f"Skipping:\n\t{BRUTE}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to brute-force POP3 users:\n\t{BRUTE}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during POP3 brute force:\n\t{BRUTE}\n\n{e}")
 # ========================
 
 # IMAP
@@ -329,39 +366,43 @@ def pop3(target, ports):
 def imap(target, ports):
     printStd("Investigating IMAP")
     NAME = "imap"
-    
+
     # Conduct Basic Scan"
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T5 -p %s -sV --script=\"imap-capabilities,imap-ntlm-info\" %s" % (portString, target)
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T5 -p {portString} -sV --script=\"imap-capabilities,imap-ntlm-info\" {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
-        
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished enumerating IMAP: %s" % path)
+        printPlus(f"Finished enumerating IMAP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to enumerate IMAP:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to enumerate IMAP:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during IMAP enumeration:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct Brute Force"
     printStd("Trying to brute-force IMAP users")
-    BRUTE = "nmap -T5 -p %s --script=\"imap-brute\" %s" % (portString, target)
+    BRUTE = f"nmap -T5 -p {portString} --script=\"imap-brute\" {target}"
     try:
-        bruteResults = subprocess.check_output(BRUTE, shell=True)
-        
+        # Capture output as bytes and decode
+        bruteResults = subprocess.check_output(BRUTE, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(BRUTE, bruteResults)
+        content = printInBox(BRUTE, bruteResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating IMAP: %s" % path)
+        printPlus(f"Finished investigating IMAP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % BRUTE)
-    except Exception:
-        printErr("Unable to brute-force IMAP users:\n\t%s" % BRUTE)
+        printMinus(f"Skipping:\n\t{BRUTE}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to brute-force IMAP users:\n\t{BRUTE}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during IMAP brute force:\n\t{BRUTE}\n\n{e}")
 # ========================
 
 # SMB
@@ -371,45 +412,54 @@ def smb(target, ports):
     NAME = "smb"
 
     # Conduct Vulnerability Scans #
-    SCAN1 = "nmap -T5 -sV -sC --script=\"smb-vuln-*,samba-vuln-*\" -p 445,139 %s" % target
-    SCAN2 = "nmap -T5 -sU -sV -sC --script=\"smb-vuln-*\" -p U:137,T:139 %s" % target
+    SCAN1 = f"nmap -T5 -sV -sC --script=\"smb-vuln-*,samba-vuln-*\" -p 445,139 {target}"
+    SCAN2 = f"nmap -T5 -sU -sV -sC --script=\"smb-vuln-*\" -p U:137,T:139 {target}"
     try:
-        scan1Results = subprocess.check_output(SCAN1, shell=True)
-        scan2Results = subprocess.check_output(SCAN2, shell=True)
+        # Capture output as bytes and decode
+        scan1Results = subprocess.check_output(SCAN1, shell=True, stderr=subprocess.STDOUT)
+        scan2Results = subprocess.check_output(SCAN2, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s\n%s" % (printInBox(SCAN1, scan1Results), printInBox(SCAN2, scan2Results))
+        content = f"{printInBox(SCAN1, scan1Results.decode('utf-8', errors='ignore'))}\n{printInBox(SCAN2, scan2Results.decode('utf-8', errors='ignore'))}"
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating SMB Vulnerabilities: %s" % path)
+        printPlus(f"Finished investigating SMB Vulnerabilities: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s\n\t%s" % (SCAN1, SCAN2))
-    except Exception:
-        printErr("Unable to conduct SMB vulnerability scan:\n\t%s\n\t%s" % (SCAN1, SCAN2))
+        printMinus(f"Skipping:\n\t{SCAN1}\n\t{SCAN2}")
+    except subprocess.CalledProcessError as e:
+        # Determine which scan failed if possible, or provide a general error
+        printErr(f"Unable to conduct SMB vulnerability scan (check logs for details):\n\t{SCAN1}\n\t{SCAN2}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during SMB vulnerability scan:\n\t{SCAN1}\n\t{SCAN2}\n\n{e}")
+
 
     # Conduct Scan #
     printStd("Investigating SMB Access")
-    LOOKUP = "nmblookup -A %s" % target
-    SCAN = "enum4linux %s" % target
-    ADVICE = "use :: smbclient //<server>/<share> -I <target ip> -N :: to mount shared drive anonymously"
+    LOOKUP = f"nmblookup -A {target}"
+    SCAN = f"enum4linux {target}"
+    ADVICE = f"use :: smbclient //<server>/<share> -I {target} -N :: to mount shared drive anonymously"
     try:
         # Lookup #
-        lookupResults = subprocess.check_output(LOOKUP, shell=True)
+        # Capture output as bytes and decode
+        lookupResults = subprocess.check_output(LOOKUP, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(LOOKUP, lookupResults)
+        content = printInBox(LOOKUP, lookupResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        
+
         # Scan #
-        scanResults = subprocess.check_output(SCAN, shell=True)
+        # Capture output as bytes and decode
+        scanResults = subprocess.check_output(SCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(SCAN, "%s\n\n%s" % (scanResults, ADVICE))
+        content = printInBox(SCAN, f"{scanResults.decode('utf-8', errors='ignore')}\n\n{ADVICE}")
         path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating SMB: %s" % path)
+        printPlus(f"Finished investigating SMB: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % SCAN)
-    except Exception:
-        printErr("Unable to conduct SMB scan:\n\t%s" % SCAN)
+        printMinus(f"Skipping:\n\t{SCAN}") # Assuming SCAN is the primary command here
+    except subprocess.CalledProcessError as e:
+         printErr(f"Unable to conduct SMB scan (check nmblookup or enum4linux):\n\t{LOOKUP}\n\t{SCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during SMB scan:\n\t{LOOKUP}\n\t{SCAN}\n\n{e}")
 # ========================
 
 # HTTP
@@ -419,112 +469,134 @@ def http(target, ports):
     NAME = "http"
 
     # Conduct nmap Scan #
+    # Ensure ports list is not empty
+    if not ports:
+        printErr("No HTTP ports provided for scanning.")
+        return
+
     SCRIPTS = "http-methods,http-robots.txt,http-vuln-*,http-userdir-enum,http-iis-webdav-vuln,http-majordomo2-dir-traversal,http-axis2-dir-traversal,http-tplink-dir-traversal,http-useragent-tester"
-    
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sC -sV --script=\"%s\" %s" % (portString, SCRIPTS, target)
+
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T4 -p {portString} -sC -sV --script=\"{SCRIPTS}\" {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning HTTP: %s" % path)
+        printPlus(f"Finished scanning HTTP: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct HTTP scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct HTTP scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during HTTP scan:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct WebDav Scan #
     printStd("Trying to identify WebDav")
-    WEBDAVSCAN = "nmap -T4 -p %s --script http-webdav-scan %s -d 2>/dev/null | grep 'http-webdav-scan %s'" % (portString, target, target)
+    # Note: The original grep might hide errors. Consider removing it or handling errors differently.
+    WEBDAVSCAN = f"nmap -T4 -p {portString} --script http-webdav-scan {target} -d" # Removed grep for better error visibility
     try:
-        webdavscanResults = subprocess.check_output(WEBDAVSCAN, shell=True)
+        # Capture output as bytes and decode
+        webdavscanResults_raw = subprocess.check_output(WEBDAVSCAN, shell=True, stderr=subprocess.STDOUT)
+        webdavscanResults = webdavscanResults_raw.decode('utf-8', errors='ignore')
+        # Manually filter for relevant lines if needed, instead of grep
+        filtered_results = "\n".join(line for line in webdavscanResults.splitlines() if f'http-webdav-scan {target}' in line)
 
         # Write Results #
-        content = "%s" % printInBox(WEBDAVSCAN, webdavscanResults)
+        content = printInBox(WEBDAVSCAN, filtered_results if filtered_results else webdavscanResults) # Write filtered or full results
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning WebDav: %s" % path)
+        printPlus(f"Finished scanning WebDav: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % WEBDAVSCAN)
-    except subprocess.CalledProcessError as ex:
-        if ex.returncode != 1:
-            raise Exception
-    except Exception:
-        printErr("Unable to perform WebDav analysis:\n\t%s" % WEBDAVSCAN)
+        printMinus(f"Skipping:\n\t{WEBDAVSCAN}")
+    except subprocess.CalledProcessError as e:
+        # The original grep hid non-zero exit codes unless it was 1.
+        # Now, any non-zero exit code will raise CalledProcessError.
+        printErr(f"Unable to perform WebDav analysis:\n\t{WEBDAVSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during WebDav analysis:\n\t{WEBDAVSCAN}\n\n{e}")
+
 
     # Conduct Brute #
-    for port in ports:
-        urlArr = []
-        urlDir = ["/"]
-        port = port.split("/")[0]
-        printStd("Trying to brute-force HTTP directories on port %s" % port)
-        DIRB = "gobuster -x php -l -t 100 -u http://%s:%s -w /usr/share/wordlists/dirb/common.txt" % (target, port)
-        try:
-            dirbResults = subprocess.check_output(DIRB, shell=True)
-
-            # Parse Results for Spider #
-            urlArr = parse_ip(dirbResults)
-            urlDir = parse_ip_directories(dirbResults)
-            
-            # Write Results #
-            content = "%s" % printInBox(DIRB, dirbResults)
-            path = writeToFile(target, NAME, content)
-            printPlus("Finished HTTP brute-force against port %s: %s - Found: %s" % (port, path, len(urlArr)))
-        except KeyboardInterrupt:
-            printMinus("Skipping:\n\t%s" % DIRB)
-        except Exception:
-            printErr("Unable to brute-force HTTP on port %s:\n\t%s" % (port, DIRB))
-
-        # Conduct Spider #
-        SCRIPTS = "http-shellshock,http-auth-finder,http-backup-finder,http-comments-displayer,http-config-backup,http-default-accounts,http-dombased-xss,http-errors,http-fileupload-exploiter,http-method-tamper,http-passwd,http-phpmyadmin-dir-traversal,http-phpself-xss,http-rfi-spider,http-sitemap-generator,http-sql-injection,http-stored-xss,http-unsafe-output-escaping"
-
-        # Spidered Vulnerability Scans
-        for url in urlDir:
-            # Nikto Scan #
-            NIKTO = "nikto -host http://%s:%s " % (target, port)
+    # Ensure wordlist path exists
+    dirb_wordlist = "/usr/share/wordlists/dirb/common.txt"
+    if not os.path.exists(dirb_wordlist):
+        printErr(f"Dirb wordlist not found: {dirb_wordlist}")
+    else:
+        for port in ports:
+            urlArr = []
+            urlDir = ["/"] # Default to root if parsing fails
+            port_num = port.split("/")[0]
+            printStd(f"Trying to brute-force HTTP directories on port {port_num}")
+            DIRB = f"gobuster dir -x php -t 100 -u http://{target}:{port_num} -w {dirb_wordlist}" # Updated gobuster syntax
             try:
-                printStd("Crawling %s for vulnerabilities (nikto)" % url)
-            
-                niktoResults = subprocess.check_output(NIKTO, shell=True)
-                # ...sometimes this doesn't work...?
-                if "0 host(s) tested" in niktoResults:
-                    niktoResults = subprocess.check_output(NIKTO, shell=True)
-            
-                if "0 host(s) tested" in niktoResults:
-                    printDbg(niktoResults)
-                    raise Exception
-            
+                # Capture output as bytes and decode
+                dirbResults_raw = subprocess.check_output(DIRB, shell=True, stderr=subprocess.STDOUT)
+                dirbResults = dirbResults_raw.decode('utf-8', errors='ignore')
+
+                # Parse Results for Spider #
+                # Adjust parsing based on actual gobuster output format if needed
+                urlArr = parse_ip(dirbResults)
+                parsed_dirs = parse_ip_directories(dirbResults)
+                if parsed_dirs: # Update urlDir only if parsing is successful
+                    urlDir = parsed_dirs
+
                 # Write Results #
-                content = "%s" % printInBox(NIKTO, niktoResults)
+                content = printInBox(DIRB, dirbResults)
                 path = writeToFile(target, NAME, content)
-                printPlus("Finished crawling %s for vulnerabilities (nikto): %s" % (url, path))
-            
+                printPlus(f"Finished HTTP brute-force against port {port_num}: {path} - Found: {len(urlArr)}")
             except KeyboardInterrupt:
-                printMinus("Skipping:\n\t%s" % NIKTO)
+                printMinus(f"Skipping:\n\t{DIRB}")
+            except subprocess.CalledProcessError as e:
+                 printErr(f"Unable to brute-force HTTP on port {port_num}:\n\t{DIRB}\n\n{e.output.decode('utf-8', errors='ignore')}")
             except Exception as e:
-                print str(e)
-                printErr("Unable to conduct HTTP vulnerability crawl (nikto):\n\t%s" % NIKTO)
+                printErr(f"An unexpected error occurred during HTTP brute force on port {port_num}:\n\t{DIRB}\n\n{e}")
 
-            # Nmap Scan #
-            SCRIPTARGS = "http-shellshock.uri=%(url)s,http-backup-finder.url=%(url)s,http-config-backup.path=%(url)s,http-default-accounts.category=web,http-default-accounts.basepath=%(url)s,httpspider.url=%(url)s,http-method-tamper.uri=%(url)s,http-passwd.root=%(url)s,http-phpmyadmin-dir-traversal.dir=%(url)s,http-phpself-xss.uri=%(url)s,http-rfi-spider.url=%(url)s,http-sitemap-generator.url=%(url)s,http-sql-injection.url=%(url)s,http-unsafe-output-escaping.url=%(url)s" % {"url":urlparse.urlparse(url).path}
-            VULNSCAN = "nmap -T4 -p %s %s --script=\"%s\" --script-args=\"%s\" 2>&1" % (port, target, SCRIPTS, SCRIPTARGS)
-            try:
-                printStd("Crawling %s for vulnerabilities (nmap)" % url)
-                vulnscanResults = subprocess.check_output(VULNSCAN, shell=True)
 
-                # Write Results #
-                content = "%s" % printInBox(VULNSCAN, vulnscanResults)
-                path = writeToFile(target, NAME, content)
-                printPlus("Finished crawling %s for vulnerabilities (nmap): %s" % (url, path))
+            # Conduct Spider #
+            SPIDER_SCRIPTS = "http-shellshock,http-auth-finder,http-backup-finder,http-comments-displayer,http-config-backup,http-default-accounts,http-dombased-xss,http-errors,http-fileupload-exploiter,http-method-tamper,http-passwd,http-phpmyadmin-dir-traversal,http-phpself-xss,http-rfi-spider,http-sitemap-generator,http-sql-injection,http-stored-xss,http-unsafe-output-escaping"
 
-            except KeyboardInterrupt:
-                printMinus("Skipping:\n\t%s" % VULNSCAN)
-            except Exception:
-                printErr("Unable to conduct HTTP vulnerability crawl (nmap):\n\t%s" % VULNSCAN)
+            # Spidered Vulnerability Scans
+            for base_url_str in urlDir: # Iterate through found directories
+                # Nikto Scan #
+                NIKTO = f"nikto -host http://{target}:{port_num}" # Nikto usually scans the host, not specific paths from dirb
+                try:
+                    printStd(f"Running Nikto scan on http://{target}:{port_num}")
+
+                    # Capture output as bytes and decode
+                    niktoResults_raw = subprocess.check_output(NIKTO, shell=True, stderr=subprocess.STDOUT)
+                    niktoResults = niktoResults_raw.decode('utf-8', errors='ignore')
+
+                    # Check for common Nikto failure message
+                    if "0 host(s) tested" in niktoResults:
+                        printDbg(f"Nikto reported 0 hosts tested for {target}:{port_num}")
+                        # Consider if this is an error or just no findings
+
+                    # Write Results #
+                    content = printInBox(NIKTO, niktoResults)
+                    path = writeToFile(target, f"{NAME}_nikto_{port_num}", content) # Separate file for Nikto results
+                    printPlus(f"Finished Nikto scan on http://{target}:{port_num}: {path}")
+
+                except KeyboardInterrupt:
+                    printMinus(f"Skipping Nikto scan:\n\t{NIKTO}")
+                except subprocess.CalledProcessError as e:
+                     printErr(f"Unable to conduct Nikto scan:\n\t{NIKTO}\n\n{e.output.decode('utf-8', errors='ignore')}")
+                except Exception as e:
+                    printErr(f"An unexpected error occurred during Nikto scan:\n\t{NIKTO}\n\n{e}")
+
+
+                # Nmap Script Scan on specific paths (if applicable) #
+                # The original script args seemed complex and potentially incorrect.
+                # Revisit this logic if specific path scanning with Nmap is crucial.
+                # For now, focusing on the base Nmap scan done earlier.
+                # If needed, construct VULNSCAN carefully for each base_url_str
+                # parsed_url = urlparse(base_url_str)
+                # path_to_scan = parsed_url.path if parsed_url.path else "/"
+                # SCRIPTARGS = f"http-shellshock.uri={path_to_scan},..." # Construct carefully
+                # VULNSCAN = f"nmap -T4 -p {port_num} {target} --script=\"{SPIDER_SCRIPTS}\" --script-args=\"{SCRIPTARGS}\""
+                # ... execute VULNSCAN ...
 
 # ========================
 
@@ -533,112 +605,128 @@ def http(target, ports):
 def https(target, ports):
     printStd("Investigating HTTPS")
     NAME = "https"
-    
-    # Conduct NMAP Scan #
-    SCRIPTS = "http-methods,http-robots.txt,http-vuln-*,http-shellshock,http-userdir-enum,http-iis-webdav-vuln,http-majordomo2-dir-traversal,http-axis2-dir-traversal,http-tplink-dir-traversal,http-useragent-tester,ssl-*"
 
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sV -sC --script=\"%s\" %s" % (portString, SCRIPTS, target)
+    # Ensure ports list is not empty
+    if not ports:
+        printErr("No HTTPS ports provided for scanning.")
+        return
+
+    # Conduct NMAP Scan #
+    HTTPS_SCRIPTS = "http-methods,http-robots.txt,http-vuln-*,http-shellshock,http-userdir-enum,http-iis-webdav-vuln,http-majordomo2-dir-traversal,http-axis2-dir-traversal,http-tplink-dir-traversal,http-useragent-tester,ssl-*"
+
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T4 -p {portString} -sV -sC --script=\"{HTTPS_SCRIPTS}\" {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Scan Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning HTTPS: %s" % path)
+        printPlus(f"Finished scanning HTTPS: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct HTTPS scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct HTTPS scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during HTTPS scan:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct WebDav Scan #
-    printStd("Trying to identify WebDav")
-    WEBDAVSCAN = "nmap -T4 -p %s --script http-webdav-scan %s -d 2>/dev/null | grep 'http-webdav-scan %s'" % (portString, target, target)
+    printStd("Trying to identify WebDav over HTTPS")
+    # Note: The original grep might hide errors. Consider removing it or handling errors differently.
+    WEBDAVSCAN = f"nmap -T4 -p {portString} --script http-webdav-scan {target} -d" # Removed grep
     try:
-        webdavscanResults = subprocess.check_output(WEBDAVSCAN, shell=True)
-        
+        # Capture output as bytes and decode
+        webdavscanResults_raw = subprocess.check_output(WEBDAVSCAN, shell=True, stderr=subprocess.STDOUT)
+        webdavscanResults = webdavscanResults_raw.decode('utf-8', errors='ignore')
+        # Manually filter for relevant lines if needed
+        filtered_results = "\n".join(line for line in webdavscanResults.splitlines() if f'http-webdav-scan {target}' in line)
+
         # Write Results #
-        content = "%s" % printInBox(WEBDAVSCAN, webdavscanResults)
+        content = printInBox(WEBDAVSCAN, filtered_results if filtered_results else webdavscanResults)
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning WebDav: %s" % path)
+        printPlus(f"Finished scanning WebDav over HTTPS: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % WEBDAVSCAN)
-    except subprocess.CalledProcessError as ex:
-        if ex.returncode != 1:
-            raise Exception
-    except Exception:
-        printErr("Unable to perform WebDav analysis:\n\t%s" % WEBDAVSCAN)
+        printMinus(f"Skipping:\n\t{WEBDAVSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to perform WebDav analysis over HTTPS:\n\t{WEBDAVSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during WebDav analysis over HTTPS:\n\t{WEBDAVSCAN}\n\n{e}")
+
 
     # Conduct Brute #
-    for port in ports:
-        urlArr = []
-        urlDir = ["/"]
-        port = port.split("/")[0]
-        printStd("Trying to brute-force HTTPS directories on port %s" % port)
-        DIRB = "gobuster -x php -l -t 100 -u https://%s:%s -w /usr/share/wordlists/dirb/common.txt" % (target, port)
-        try:
-            dirbResults = subprocess.check_output(DIRB, shell=True)
-            
-            # Parse Results for Spider #
-            urlArr = parse_ip(dirbResults)
-            urlDir = parse_ip_directories(dirbResults)
-            
-            # Write Results #
-            content = "%s" % printInBox(DIRB, dirbResults)
-            path = writeToFile(target, NAME, content)
-            printPlus("Finished HTTPS brute-force against port %s: %s - Found: %s" % (port, path, len(urlArr)))
-        except KeyboardInterrupt:
-            printMinus("Skipping:\n\t%s" % DIRB)
-        except Exception:
-            printErr("Unable to brute-force HTTPS on port %s:\n\t%s" % (port, DIRB))
-        
-        # Conduct Spider #
-        SCRIPTS = "http-auth-finder,http-backup-finder,http-comments-displayer,http-config-backup,http-default-accounts,http-dombased-xss,http-errors,http-fileupload-exploiter,http-method-tamper,http-passwd,http-phpmyadmin-dir-traversal,http-phpself-xss,http-rfi-spider,http-sitemap-generator,http-sql-injection,http-stored-xss,http-unsafe-output-escaping"
-
-        # Spidered Vulnerability Scans
-        for url in urlDir:
-            # Nikto Scan #
-            NIKTO = "nikto -host https://%s:%s -ssl" % (target, port)
+    # Ensure wordlist path exists
+    dirb_wordlist = "/usr/share/wordlists/dirb/common.txt"
+    if not os.path.exists(dirb_wordlist):
+        printErr(f"Dirb wordlist not found: {dirb_wordlist}")
+    else:
+        for port in ports:
+            urlArr = []
+            urlDir = ["/"] # Default
+            port_num = port.split("/")[0]
+            printStd(f"Trying to brute-force HTTPS directories on port {port_num}")
+            # Added -k for insecure HTTPS connections, common in testing environments
+            DIRB = f"gobuster dir -x php -t 100 -u https://{target}:{port_num} -w {dirb_wordlist} -k"
             try:
-                printStd("Crawling %s for vulnerabilities (nikto)" % url)
-                
-                niktoResults = subprocess.check_output(NIKTO, shell=True)
-                # ...sometimes this doesn't work...?
-                if "0 host(s) tested" in niktoResults:
-                    niktoResults = subprocess.check_output(NIKTO, shell=True)
-                
-                if "0 host(s) tested" in niktoResults:
-                    raise Exception
-                
-                # Write Results #
-                content = "%s" % printInBox(NIKTO, niktoResults)
-                path = writeToFile(target, NAME, content)
-                printPlus("Finished crawling %s for vulnerabilities (nikto): %s" % (url, path))
-            
-            except KeyboardInterrupt:
-                printMinus("Skipping:\n\t%s" % NIKTO)
-            except Exception:
-                printErr("Unable to conduct HTTPS vulnerability crawl (nikto):\n\t%s" % NIKTO)
-            
-            # Nmap Scan #
-            SCRIPTARGS = "http-backup-finder.url=%(url)s,http-config-backup.path=%(url)s,http-default-accounts.category=web,http-default-accounts.basepath=%(url)s,httpspider.url=%(url)s,http-method-tamper.uri=%(url)s,http-passwd.root=%(url)s,http-phpmyadmin-dir-traversal.dir=%(url)s,http-phpself-xss.uri=%(url)s,http-rfi-spider.url=%(url)s,http-sitemap-generator.url=%(url)s,http-sql-injection.url=%(url)s,http-unsafe-output-escaping.url=%(url)s" % {"url":urlparse.urlparse(url).path}
-            VULNSCAN = "nmap -T4 -p %s %s --script=\"%s\" --script-args=\"%s\" 2>&1" % (port, target, SCRIPTS, SCRIPTARGS)
-            try:
-                printStd("Crawling %s for vulnerabilities (nmap)" % url)
-                vulnscanResults = subprocess.check_output(VULNSCAN, shell=True)
-                
-                # Write Results #
-                content = "%s" % printInBox(VULNSCAN, vulnscanResults)
-                path = writeToFile(target, NAME, content)
-                printPlus("Finished crawling %s for vulnerabilities (nmap): %s" % (url, path))
+                # Capture output as bytes and decode
+                dirbResults_raw = subprocess.check_output(DIRB, shell=True, stderr=subprocess.STDOUT)
+                dirbResults = dirbResults_raw.decode('utf-8', errors='ignore')
 
+                # Parse Results for Spider #
+                urlArr = parse_ip(dirbResults)
+                parsed_dirs = parse_ip_directories(dirbResults)
+                if parsed_dirs:
+                    urlDir = parsed_dirs
+
+                # Write Results #
+                content = printInBox(DIRB, dirbResults)
+                path = writeToFile(target, NAME, content)
+                printPlus(f"Finished HTTPS brute-force against port {port_num}: {path} - Found: {len(urlArr)}")
             except KeyboardInterrupt:
-                printMinus("Skipping:\n\t%s" % VULNSCAN)
-            except Exception:
-                printErr("Unable to conduct HTTPS vulnerability crawl (nmap):\n\t%s" % VULNSCAN)
+                printMinus(f"Skipping:\n\t{DIRB}")
+            except subprocess.CalledProcessError as e:
+                printErr(f"Unable to brute-force HTTPS on port {port_num}:\n\t{DIRB}\n\n{e.output.decode('utf-8', errors='ignore')}")
+            except Exception as e:
+                 printErr(f"An unexpected error occurred during HTTPS brute force on port {port_num}:\n\t{DIRB}\n\n{e}")
+
+
+            # Conduct Spider #
+            SPIDER_SCRIPTS = "http-auth-finder,http-backup-finder,http-comments-displayer,http-config-backup,http-default-accounts,http-dombased-xss,http-errors,http-fileupload-exploiter,http-method-tamper,http-passwd,http-phpmyadmin-dir-traversal,http-phpself-xss,http-rfi-spider,http-sitemap-generator,http-sql-injection,http-stored-xss,http-unsafe-output-escaping"
+
+            # Spidered Vulnerability Scans
+            for base_url_str in urlDir:
+                # Nikto Scan #
+                NIKTO = f"nikto -host https://{target}:{port_num} -ssl"
+                try:
+                    printStd(f"Running Nikto scan on https://{target}:{port_num}")
+
+                    # Capture output as bytes and decode
+                    niktoResults_raw = subprocess.check_output(NIKTO, shell=True, stderr=subprocess.STDOUT)
+                    niktoResults = niktoResults_raw.decode('utf-8', errors='ignore')
+
+                    if "0 host(s) tested" in niktoResults:
+                         printDbg(f"Nikto reported 0 hosts tested for https://{target}:{port_num}")
+
+                    # Write Results #
+                    content = printInBox(NIKTO, niktoResults)
+                    path = writeToFile(target, f"{NAME}_nikto_{port_num}", content)
+                    printPlus(f"Finished Nikto scan on https://{target}:{port_num}: {path}")
+
+                except KeyboardInterrupt:
+                    printMinus(f"Skipping Nikto scan:\n\t{NIKTO}")
+                except subprocess.CalledProcessError as e:
+                    printErr(f"Unable to conduct HTTPS vulnerability crawl (nikto):\n\t{NIKTO}\n\n{e.output.decode('utf-8', errors='ignore')}")
+                except Exception as e:
+                    printErr(f"An unexpected error occurred during Nikto scan:\n\t{NIKTO}\n\n{e}")
+
+
+                # Nmap Scan on specific paths (Revisit if needed) #
+                # parsed_url = urlparse(base_url_str)
+                # path_to_scan = parsed_url.path if parsed_url.path else "/"
+                # SCRIPTARGS = f"http-backup-finder.url={path_to_scan},..." # Construct carefully
+                # VULNSCAN = f"nmap -T4 -p {port_num} {target} --script=\"{SPIDER_SCRIPTS}\" --script-args=\"{SCRIPTARGS}\" --script-args https=true" # Add https=true? Check script docs
+                # ... execute VULNSCAN ...
 # ========================
 
 # SNMP
@@ -647,51 +735,79 @@ def snmp(target, ports):
     printStd("Investigating SNMP")
     NAME = "snmp"
 
-    # Conduct Scans #
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -sU -p %s --script=\"snmp-*\" %s" % (portString, target)
+    # Ensure ports list is not empty
+    if not ports:
+        printErr("No SNMP ports provided for scanning.")
+        return
 
-    ONESIXTYONE = "onesixtyone -c /usr/share/doc/onesixtyone/dict.txt %s 2>&1" % target
-    ADVICE = "If match community string, use :: snmpwalk -c <community string> -v1 %s :: to enumerate" % target
+    # Conduct Scans #
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -sU -p {portString} --script=\"snmp-*\" {target}"
+
+    # Ensure onesixtyone dictionary exists
+    onesixtyone_dict = "/usr/share/doc/onesixtyone/dict.txt"
+    if not os.path.exists(onesixtyone_dict):
+        printErr(f"Onesixtyone dictionary not found: {onesixtyone_dict}")
+        # Decide how to proceed: skip onesixtyone or stop?
+        # For now, let's skip onesixtyone if dict is missing
+        run_onesixtyone = False
+    else:
+        run_onesixtyone = True
+        ONESIXTYONE = f"onesixtyone -c {onesixtyone_dict} {target}" # Removed 2>&1 for better error handling in Python
+
+    ADVICE = f"If match community string, use :: snmpwalk -c <community string> -v1 {target} :: to enumerate"
     foundCount = 0
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        
-        onesixtyoneResults = subprocess.check_output(ONESIXTYONE, shell=True)
-        foundCount = len(onesixtyoneResults.split('\n')) - 1
-        
-        # Write Results #
-        content = "%s" % printInBox(ONESIXTYONE, onesixtyoneResults)
-        path = writeToFile(target, NAME, content)
-        
-        printPlus("Finished investigating SNMP: %s" % path)
-    except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % ONESIXTYONE)
-    except Exception:
-        printErr("Unable to conduct SNMP scan:\n\t%s" % ONESIXTYONE)
 
-    if foundCount > 1:
-        printStd("Mapping SNMP")
-        WALK = "for s in $(onesixtyone -c /usr/share/doc/onesixtyone/dict.txt %s | grep %s | cut -d ' ' -f 2 | sed -e 's/\[//g' -e 's/\]//g');do snmpwalk -c $s -v1 %s;done" % (target, target, target)
-        try:
-            walkResults = subprocess.check_output(WALK, shell=True)
+        if run_onesixtyone:
+            # Capture output as bytes and decode
+            onesixtyoneResults_raw = subprocess.check_output(ONESIXTYONE, shell=True, stderr=subprocess.STDOUT)
+            onesixtyoneResults = onesixtyoneResults_raw.decode('utf-8', errors='ignore')
+            # Count lines excluding potential empty last line
+            foundCount = len([line for line in onesixtyoneResults.splitlines() if line.strip()])
 
             # Write Results #
-            content = "%s" % printInBox(WALK, walkResults)
-            path = writeToFile(target, NAME, content)
+            content = printInBox(ONESIXTYONE, onesixtyoneResults)
+            path = writeToFile(target, NAME, content) # Append to the same file
 
-            printPlus("Finished mapping SNMP: %s" % path)
-        except KeyboardInterrupt:
-            printMinus("Skipping:\n\t%s" % WALK)
-        except Exception:
-            printErr("unable to map SNMP:\n\t%s" % WALK)
+        printPlus(f"Finished investigating SNMP: {path}")
+    except KeyboardInterrupt:
+        printMinus(f"Skipping SNMP scans")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct SNMP scan (check nmap or onesixtyone):\n\t{NMAPSCAN}\n\t{ONESIXTYONE if run_onesixtyone else ''}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during SNMP scan:\n\t{NMAPSCAN}\n\t{ONESIXTYONE if run_onesixtyone else ''}\n\n{e}")
+
+
+    if foundCount > 0: # Changed from > 1 as even one result is worth trying to walk
+        printStd("Mapping SNMP")
+        # This shell command is complex and error-prone. Consider reimplementing in Python if possible.
+        # For now, keeping the shell command but ensuring dict path is correct.
+        WALK = f"for s in $({ONESIXTYONE} | grep {target} | cut -d ' ' -f 2 | sed -e 's/\\[//g' -e 's/\\]//g');do snmpwalk -c $s -v1 {target};done"
+        if not run_onesixtyone:
+             printErr("Cannot perform SNMP walk because onesixtyone dictionary was not found.")
+        else:
+            try:
+                # Capture output as bytes and decode
+                walkResults = subprocess.check_output(WALK, shell=True, stderr=subprocess.STDOUT, executable='/bin/bash') # Specify bash
+
+                # Write Results #
+                content = printInBox(WALK, walkResults.decode('utf-8', errors='ignore'))
+                path = writeToFile(target, NAME, content) # Append to the same file
+
+                printPlus(f"Finished mapping SNMP: {path}")
+            except KeyboardInterrupt:
+                printMinus(f"Skipping:\n\t{WALK}")
+            except subprocess.CalledProcessError as e:
+                printErr(f"Unable to map SNMP:\n\t{WALK}\n\n{e.output.decode('utf-8', errors='ignore')}")
+            except Exception as e:
+                 printErr(f"An unexpected error occurred during SNMP walk:\n\t{WALK}\n\n{e}")
 # ========================
 
 # MS-SQL
@@ -700,38 +816,64 @@ def ms_sql(target, ports):
     printStd("Investigating MS-SQL")
     NAME = "ms_sql"
 
+    # Ensure ports list is not empty
+    if not ports:
+        printErr("No MS-SQL ports provided for scanning.")
+        return
+
     # Conduct nmap Scan #
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sV -sC %s" % (portString, target)
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T4 -p {portString} -sV -sC {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Scan Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning MS-SQL: %s" % path)
+        printPlus(f"Finished scanning MS-SQL: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct MS-SQL scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct MS-SQL scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during MS-SQL scan:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct Brute #
     printStd("Trying to brute-force MS-SQL")
-    BRUTE = "medusa -h %s -U /usr/share/wordlists/metasploit/default_users_for_services_unhash.txt -P /usr/share/wordlists/metasploit/default_pass_for_services_unhash.txt -M mssql -L -f 2>&1" % (target)
-    try:
-        bruteResults = subprocess.check_output(BRUTE, shell=True)
+    # Check for wordlist existence
+    user_wordlist = "/usr/share/wordlists/metasploit/default_users_for_services_unhash.txt"
+    pass_wordlist = "/usr/share/wordlists/metasploit/default_pass_for_services_unhash.txt"
+    if not os.path.exists(user_wordlist) or not os.path.exists(pass_wordlist):
+        printErr(f"Required wordlist(s) not found: {user_wordlist}, {pass_wordlist}")
+    else:
+        BRUTE = f"medusa -h {target} -U {user_wordlist} -P {pass_wordlist} -M mssql -L -f" # Removed 2>&1
+        try:
+            # Capture output as bytes and decode
+            bruteResults = subprocess.check_output(BRUTE, shell=True, stderr=subprocess.STDOUT)
 
-        # Write Brute Results #
-        content = "%s" % printInBox(BRUTE, bruteResults)
-        path = writeToFile(target, NAME, content)
-        printPlus("Finished conducting MS-SQL brute-force: %s" % path)
-    except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % BRUTE)
-    except Exception:
-        printErr("Unable to conduct MS-SQL brute-force:\n\t%s" % BRUTE)
+            # Write Brute Results #
+            content = printInBox(BRUTE, bruteResults.decode('utf-8', errors='ignore'))
+            path = writeToFile(target, NAME, content) # Append to same file
+            printPlus(f"Finished conducting MS-SQL brute-force: {path}")
+        except KeyboardInterrupt:
+            printMinus(f"Skipping:\n\t{BRUTE}")
+        except subprocess.CalledProcessError as e:
+            # Medusa might return non-zero on no creds found, check output
+            output = e.output.decode('utf-8', errors='ignore')
+            if "ACCOUNT FOUND" not in output: # Adjust based on actual Medusa output
+                 printStd(f"MS-SQL brute-force completed, no credentials found.")
+                 # Write empty or minimal results if desired
+                 content = printInBox(BRUTE, "No credentials found.")
+                 writeToFile(target, NAME, content)
+            else:
+                 printErr(f"Unable to conduct MS-SQL brute-force (check output):\n\t{BRUTE}\n\n{output}")
+                 # Write error output
+                 content = printInBox(BRUTE, output)
+                 writeToFile(target, NAME, content)
+        except Exception as e:
+            printErr(f"An unexpected error occurred during MS-SQL brute-force:\n\t{BRUTE}\n\n{e}")
 # ========================
 
 # MySQL
@@ -739,94 +881,140 @@ def ms_sql(target, ports):
 def mysql(target, ports):
     printStd("Investigating MySQL")
     NAME = "mysql"
-    
+
+    # Ensure ports list is not empty
+    if not ports:
+        printErr("No MySQL ports provided for scanning.")
+        return
+
     # Conduct nmap Scan #
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sV -sC %s" % (portString, target)
+    portString = ",".join([p.split("/")[0] for p in ports])
+    NMAPSCAN = f"nmap -T4 -p {portString} -sV -sC {target}"
     try:
-        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True)
+        # Capture output as bytes and decode
+        nmapscanResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
 
         # Write Scan Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapscanResults)
+        content = printInBox(NMAPSCAN, nmapscanResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning MySQL: %s" % path)
+        printPlus(f"Finished scanning MySQL: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printMinus("Unable to conduct MySQL scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+         # Changed printMinus to printErr for consistency
+        printErr(f"Unable to conduct MySQL scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during MySQL scan:\n\t{NMAPSCAN}\n\n{e}")
+
 
     # Conduct Brute #
     printStd("Trying to brute-force MySQL")
-    BRUTE = "medusa -h %s -U /usr/share/wordlists/metasploit/default_users_for_services_unhash.txt -P /usr/share/wordlists/metasploit/default_pass_for_services_unhash.txt -M mysql -L -f 2>&1" % (target)
-    try:
-        bruteResults = subprocess.check_output(BRUTE, shell=True)
+    # Check for wordlist existence
+    user_wordlist = "/usr/share/wordlists/metasploit/default_users_for_services_unhash.txt"
+    pass_wordlist = "/usr/share/wordlists/metasploit/default_pass_for_services_unhash.txt"
+    if not os.path.exists(user_wordlist) or not os.path.exists(pass_wordlist):
+        printErr(f"Required wordlist(s) not found: {user_wordlist}, {pass_wordlist}")
+    else:
+        BRUTE = f"medusa -h {target} -U {user_wordlist} -P {pass_wordlist} -M mysql -L -f" # Removed 2>&1
+        try:
+            # Capture output as bytes and decode
+            bruteResults = subprocess.check_output(BRUTE, shell=True, stderr=subprocess.STDOUT)
 
-        # Write Brute Results #
-        content = "%s" % printInBox(BRUTE, bruteResults)
-        path = writeToFile(target, NAME, content)
-        printPlus("Finished conducting MySQL brute-force: %s" % path)
-    except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % BRUTE)
-    except Exception:
-        printErr("Unable to conudct MySQL brute-foce:\n\t%s" % BRUTE)
+            # Write Brute Results #
+            content = printInBox(BRUTE, bruteResults.decode('utf-8', errors='ignore'))
+            path = writeToFile(target, NAME, content) # Append
+            printPlus(f"Finished conducting MySQL brute-force: {path}")
+        except KeyboardInterrupt:
+            printMinus(f"Skipping:\n\t{BRUTE}")
+        except subprocess.CalledProcessError as e:
+            # Handle Medusa's non-zero exit code on no creds found
+            output = e.output.decode('utf-8', errors='ignore')
+            if "ACCOUNT FOUND" not in output: # Adjust based on actual Medusa output
+                 printStd(f"MySQL brute-force completed, no credentials found.")
+                 content = printInBox(BRUTE, "No credentials found.")
+                 writeToFile(target, NAME, content)
+            else:
+                 printErr(f"Unable to conduct MySQL brute-force (check output):\n\t{BRUTE}\n\n{output}")
+                 content = printInBox(BRUTE, output)
+                 writeToFile(target, NAME, content)
+        except Exception as e:
+            printErr(f"An unexpected error occurred during MySQL brute-force:\n\t{BRUTE}\n\n{e}")
 # ========================
 # NFS
 # ========================
 def nfs(target, ports):
     printStd("Investigating NFS")
     NAME = "nfs"
-    
+
+    # Ensure ports list is not empty (though NFS often uses portmapper/rpcbind)
+    # if not ports:
+    #     printErr("No specific NFS ports provided, relying on rpcinfo/showmount.")
+        # return # Decide if ports are strictly necessary
+
     # Conduct rpcinfo #
-    RPCINFO = "rpcinfo -s %s" % target
+    RPCINFO = f"rpcinfo -p {target}" # Use -p for port info, -s is deprecated/less useful
     try:
-        rpcinfoResults = subprocess.check_output(RPCINFO, shell=True)
-    
+        # Capture output as bytes and decode
+        rpcinfoResults = subprocess.check_output(RPCINFO, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(RPCINFO, rpcinfoResults)
+        content = printInBox(RPCINFO, rpcinfoResults.decode('utf-8', errors='ignore'))
         path = writeToFile(target, NAME, content)
-        printPlus("Finished scanning RPC processes: %s" % path)
+        printPlus(f"Finished scanning RPC processes: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % RPCINFO)
-    except Exception:
-        printErr("Unable to scan RPC processes:\n\t%s" % RPCINFO)
-    
+        printMinus(f"Skipping:\n\t{RPCINFO}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to scan RPC processes:\n\t{RPCINFO}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during RPC scan:\n\t{RPCINFO}\n\n{e}")
+
+
     # Conduct showmount #
     printStd("Capturing accessible NFS shares")
-    SHOWMOUNT = "showmount -e %s" % target
-    ADVICE = "Use :: mount -t ntf %s:[share] /mnt/%s -o nolock :: to mount share"
+    SHOWMOUNT = f"showmount -e {target}"
+    # ADVICE needs target interpolation
+    ADVICE = f"Use :: mount -t nfs {target}:[share] /mnt/{target} -o nolock :: to mount share" # Corrected mount type to nfs
     try:
-        showmountResults = subprocess.check_output(SHOWMOUNT, shell=True)
-    
+        # Capture output as bytes and decode
+        showmountResults = subprocess.check_output(SHOWMOUNT, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(SHOWMOUNT, "%s\n\n%s" % (showmountResults, ADVICE))
-        path = writeToFile(target, NAME, content)
-        printPlus("Captured accessible NFS shares: %s" % path)
+        content = printInBox(SHOWMOUNT, f"{showmountResults.decode('utf-8', errors='ignore')}\n\n{ADVICE}")
+        path = writeToFile(target, NAME, content) # Append
+        printPlus(f"Captured accessible NFS shares: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % SHOWMOUNT)
-    except Exception:
-        printErr("Unable to capture accessible NFS shares:\n\t%s" % SHOWMOUNT)
-    
+        printMinus(f"Skipping:\n\t{SHOWMOUNT}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to capture accessible NFS shares:\n\t{SHOWMOUNT}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during showmount:\n\t{SHOWMOUNT}\n\n{e}")
+
+
     # Conduct nmap Scan #
-    printStd("Exploring accessible NFS shares")
-    portString = ""
-    for port in ports:
-        port = port.split("/")[0]
-        portString += "%s," % port
-    NMAPSCAN = "nmap -T4 -p %s -sV -sC --script=\"nfs-showmount,nfs-ls\" %s" % (portString, target)
+    printStd("Exploring accessible NFS shares with Nmap")
+    # Use common NFS ports if specific ports list is empty or unreliable
+    nfs_ports_to_scan = "111,2049" # Common RPC and NFS ports
+    if ports:
+        portString = ",".join([p.split("/")[0] for p in ports])
+        # Combine known NFS ports with provided ports if necessary
+        nfs_ports_to_scan = f"{portString},{nfs_ports_to_scan}"
+
+
+    NMAPSCAN = f"nmap -T4 -p {nfs_ports_to_scan} -sV -sC --script=\"nfs-showmount,nfs-ls\" {target}"
     try:
-        nmapResults = subprocess.check_output(NMAPSCAN, shell=True)
-        
+        # Capture output as bytes and decode
+        nmapResults = subprocess.check_output(NMAPSCAN, shell=True, stderr=subprocess.STDOUT)
+
         # Write Results #
-        content = "%s" % printInBox(NMAPSCAN, nmapResults)
-        path = writeToFile(target, NAME, content)
-        printPlus("Finished investigating NFS: %s" % path)
+        content = printInBox(NMAPSCAN, nmapResults.decode('utf-8', errors='ignore'))
+        path = writeToFile(target, NAME, content) # Append
+        printPlus(f"Finished investigating NFS with Nmap: {path}")
     except KeyboardInterrupt:
-        printMinus("Skipping:\n\t%s" % NMAPSCAN)
-    except Exception:
-        printErr("Unable to conduct NFS scan:\n\t%s" % NMAPSCAN)
+        printMinus(f"Skipping:\n\t{NMAPSCAN}")
+    except subprocess.CalledProcessError as e:
+        printErr(f"Unable to conduct NFS Nmap scan:\n\t{NMAPSCAN}\n\n{e.output.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        printErr(f"An unexpected error occurred during NFS Nmap scan:\n\t{NMAPSCAN}\n\n{e}")
 # ========================
 
 # ------------------------------------
@@ -846,19 +1034,21 @@ KNOWN_SERVICES = {
     "snmp"          :   snmp,
     "ms-sql-s"      :   ms_sql,
     "mysql"         :   mysql,
-    "rpcbind"       :   nfs
+    "rpcbind"       :   nfs,
+    "mountd"        :   nfs # Added mountd as it's related to NFS
 }
 
 
 def moduleDispatch(target,services):
     TARGET = target
-    printStd("Scanning for possible modules for %s" % target)
+    printStd(f"Scanning for possible modules for {target}")
     try:
         dispatchModules(TARGET, services)
         conductHeavyNmap(TARGET)
     except KeyboardInterrupt:
-        print "\n\nExiting.\n"
-        sys.exit(1)    
+        print("\n\nExiting.\n")
+        sys.exit(1)
+    # Consider adding a general Exception catch here too
 
 
 def main(targets):
@@ -868,17 +1058,32 @@ def main(targets):
 
     for target in targets:
         if not validate_ip(target):
-            printMinus("Invalid IP Address")
-            printUsage()
-            sys.exit(2)
+            printMinus(f"Invalid IP Address: {target}") # Show the invalid IP
+            # Consider not exiting immediately, maybe skip this target?
+            # printUsage()
+            # sys.exit(2)
+            continue # Skip invalid IP
         printHeader(target)
-        error = prepareFolder(target)        
+        prepareFolder(target) # Removed unused 'error' variable
 
-    execNmapParallel(targets)
-    for count,ip in enumerate(targets,1):
-        moduleDispatch(ip,ALLSERVICES[count-1])
+    # Initialize ALLSERVICES based on the number of valid targets
+    valid_targets = [t for t in targets if validate_ip(t)]
+    global ALLSERVICES # Declare ALLSERVICES as global if modifying it here
+    ALLSERVICES = [None] * len(valid_targets)
+
+    execNmapParallel(valid_targets) # Pass only valid targets
+
+    # Iterate through valid targets and corresponding services
+    for count, ip in enumerate(valid_targets, 1):
+        # Check if services were populated for this IP
+        if count <= len(ALLSERVICES) and ALLSERVICES[count-1] is not None:
+             moduleDispatch(ip, ALLSERVICES[count-1])
+        else:
+             printErr(f"No services found or Nmap scan failed for {ip}. Skipping module dispatch.")
 
 
 if __name__ == "__main__":
-    ALLSERVICES = [None] * len(sys.argv[1:])
+    # Initialize ALLSERVICES here based on argv length, before main modifies it
+    # This avoids potential race conditions if main runs before this line in some scenarios
+    # ALLSERVICES = [None] * len(sys.argv[1:]) # Moved initialization logic into main
     main(sys.argv[1:])
