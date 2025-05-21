@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Vanquish
+# 
 # Root2Boot automation platform designed to systematically enumernate and exploit using the law of diminishing returns
 # DONE: Automate DNS Name lookup NMap XML generation upon discovering a DNS server
 # DONE: remove upfront_scan_hosts funciton and merge with enumerate function
@@ -281,11 +281,11 @@ class Color:
 class Vanquish:
     def __init__(self, argv):
         self.banner()
-        print(Color.green()+"Vanquish Version: " + __version__ + " Updated: " + __lastupdated__ +Color.reset())
+        print(Color.green()+"Ruadan Version: " + __version__ + " Updated: " + __lastupdated__ +Color.reset())
         self.parser = argparse.ArgumentParser(
-            description='Vanquish is Kali Linux based Enumeration Orchestrator.')
+            description='Ruadan is Kali Linux based Enumeration Orchestrator, based Vanquish.')
         self.parser.add_argument("-install", action='store_true',
-                                 help='Install Vanquish and it\'s requirements')
+                                 help='Install Ruadan and it\'s requirements')
         self.parser.add_argument("-outputFolder", metavar='folder', type=str, default="",
                                  help='output folder path (default: name of the host file))')
         self.parser.add_argument("-configFile", metavar='file', type=str, default="config.ini",
@@ -520,12 +520,12 @@ class Vanquish:
             host_ports = [d['portid'] for d in self.nmap_dict[host]['ports'] if 'portid' in d]
             if self.plan.has_option(phase_name, 'always'):
                 self.nmap_dict[host]['ports'].append(
-                    {'state': 'open', 'name': 'always', 'portid': '0', 'product': 'Vanquish Added Always Service'})
+                    {'state': 'open', 'name': 'always', 'portid': '0', 'product': 'Ruadan Added Always Service'})
             if self.plan.has_option(phase_name, 'run once'):
                 if self.run_once.get(phase_name) is None:
                     self.run_once[phase_name] = host
                     self.nmap_dict[host]['ports'].append(
-                        {'state': 'open', 'name': 'run once', 'portid': '-1', 'product': 'Vanquish Added Run Once Service'})
+                        {'state': 'open', 'name': 'run once', 'portid': '-1', 'product': 'Ruadan Added Run Once Service'})
             for service in self.nmap_dict[host]['ports']:
                 Logger.debug("\tenumerate() - port_number: " + str(service))
                 for known_service, ports in self.config.items('Service Ports'):
