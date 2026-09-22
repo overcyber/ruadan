@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Vanquish is the new name ruadan
+# Ruadan
 # Root2Boot automation platform designed to systematically enumernate and exploit using the law of diminishing returns
 # DONE: Automate DNS Name lookup NMap XML generation upon discovering a DNS server
 # DONE: remove upfront_scan_hosts funciton and merge with enumerate function
@@ -60,7 +60,6 @@
 """
 Main application logic and automation functions
 """
-from parser import ParserError
 
 __version__ = '0.29'
 __lastupdated__ = 'March 18, 2018'
@@ -81,7 +80,7 @@ import os
 import sys
 import time
 import re
-import configparser
+import configparser as ConfigParser
 import argparse
 import random
 import operator
@@ -91,12 +90,12 @@ from shutil import copyfile
 import json
 import xml.etree.ElementTree as ET
 from multiprocessing.dummy import Pool as ThreadPool
-from subprocess import Popen, PIPE, STDOUT
+import subprocess
+from subprocess import Popen, PIPE, STDOUT, DEVNULL
 from datetime import datetime
 
 # PROGRESS BAR - Thank you! clint.textui.progress
-# Adjusted template for Python 3 print function
-BAR_TEMPLATE = '%s[%s%s] %i/%i - %s'
+BAR_TEMPLATE = '%s[%s%s] %i/%i - %s\r'
 DOTS_CHAR = '.'
 BAR_FILLED_CHAR = '#'
 BAR_EMPTY_CHAR = ' '
@@ -134,7 +133,7 @@ class Bar(object):
         self.etadelta = time.time()
         self.etadisp = self.format_time(self.eta)
         self.last_progress = 0
-        if (self.expected_size):
+        if self.expected_size:
             self.show(0)
 
     def show(self, progress, count=None):
@@ -152,7 +151,7 @@ class Bar(object):
                 sum(self.ittimes) / float(len(self.ittimes)) * \
                 (self.expected_size - progress)
             self.etadisp = self.format_time(self.eta)
-        x = int(self.width * progress / self.expected_size)
+        x = int(self.width * progress / self.expected_size) if self.expected_size else 0
         if not self.hide:
             if ((progress % self.every) == 0 or  # True every "every" updates
                     (progress == self.expected_size)):  # And when we're done
@@ -182,10 +181,10 @@ def bar(it, label='', width=32, hide=None, empty_char=BAR_EMPTY_CHAR,
         filled_char=BAR_FILLED_CHAR, expected_size=8, every=1):
     with Bar(label=label, width=width, hide=hide, empty_char=BAR_EMPTY_CHAR,
              filled_char=BAR_FILLED_CHAR, expected_size=expected_size, every=every) \
-            as bar:
+            as pbar:
         for i, item in enumerate(it):
             yield item
-            bar.show(i + 1)
+            pbar.show(i + 1)
 
 
 class Logger:
@@ -198,15 +197,17 @@ class Logger:
     def debug(msg):
         if Logger.DEBUG_FILE is not None:
             Logger.DEBUG_FILE.write(msg + '\n')
-        elif Logger.DEBUG == True:
-            print(f"[!] {msg}")
+            Logger.DEBUG_FILE.flush()
+        elif Logger.DEBUG is True:
+            print("[!] " + msg)
 
     @staticmethod
     def verbose(msg):
         if Logger.VERBOSE_FILE is not None:
             Logger.VERBOSE_FILE.write(msg + '\n')
-        elif Logger.VERBOSE == True:
-            print(f"[*] {msg}")
+            Logger.VERBOSE_FILE.flush()
+        elif Logger.VERBOSE is True:
+            print("[*] " + msg)
 
 
 class Color:
@@ -291,14 +292,14 @@ class Color:
             return ""
 
 
-class Vanquish:
+class Ruadan:
     def __init__(self, argv):
         self.banner()
-        print(f"{Color.green()}Vanquish is Ruadan Version: {__version__} Updated: {__lastupdated__}{Color.reset()}")
+        print(Color.green() + "Ruadan Version: " + __version__ + " Updated: " + __lastupdated__ + Color.reset())
         self.parser = argparse.ArgumentParser(
             description='Ruadan is Kali Linux based Enumeration and Pre-exploration Orchestrator.')
         self.parser.add_argument("-install", action='store_true',
-                                 help='Install and it\'s requirements')
+                                 help="Install Ruadan and it's requirements")
         self.parser.add_argument("-outputFolder", metavar='folder', type=str, default="",
                                  help='output folder path (default: name of the host file))')
         self.parser.add_argument("-configFile", metavar='file', type=str, default="config.ini",
@@ -319,27 +320,20 @@ class Vanquish:
                                       ' in the format of ip:port (default: %(default)s)')
         self.parser.add_argument("-reportFile", metavar='report', type=str, default="report.txt",
                                  help='filename used for the report (default: %(default)s)')
-        self.parser.add_argument(
-            "-noResume", action='store_true', help='do not resume a previous session')
-        self.parser.add_argument(
-            "-noColor", action='store_true', help='do not display color')
+        self.parser.add_argument("-noResume", action='store_true', help='do not resume a previous session')
+        self.parser.add_argument("-noColor", action='store_true', help='do not display color')
         self.parser.add_argument("-threadPool", metavar='threads', type=int, default="8",
                                  help='Thread Pool Size (default: %(default)s)')
-        self.parser.add_argument(
-            "-phase", metavar='phase', type=str, default='', help='only execute a specific phase')
-        self.parser.add_argument(
-            "-noExploitSearch", action='store_true', help='disable searchspolit exploit searching')
+        self.parser.add_argument("-phase", metavar='phase', type=str, default='', help='only execute a specific phase')
+        self.parser.add_argument("-noExploitSearch", action='store_true', help='disable searchspolit exploit searching')
         self.parser.add_argument("-benchmarking", action='store_true',
                                  help='enable bench mark reporting on the execution time of commands(exports '
                                       'to benchmark.csv)')
-        self.parser.add_argument("-logging", action='store_true',
-                                 help='enable verbose and debug data logging to files')
-        self.parser.add_argument(
-            "-verbose", action='store_true', help='display verbose details during the scan')
-        self.parser.add_argument(
-            "-debug", action='store_true', help='display debug details during the scan')
+        self.parser.add_argument("-logging", action='store_true', help='enable verbose and debug data logging to files')
+        self.parser.add_argument("-verbose", action='store_true', help='display verbose details during the scan')
+        self.parser.add_argument("-debug", action='store_true', help='display debug details during the scan')
 
-        self.args = self.parser.parse_args()
+        self.args = self.parser.parse_args(argv)
         self.hosts = self.args.hostFile
 
         # Installation Setup
@@ -348,28 +342,24 @@ class Vanquish:
             self.args.attackPlanFile = "installplan.ini"
 
         # load config
-        self.config = configparser.ConfigParser()
-        self.config.read(self.args.configFile)
+        self.config = ConfigParser.ConfigParser(interpolation=None, strict=False)
+        self.config.read(self.args.configFile, encoding='utf-8')
 
-        Logger.VERBOSE = (self.config.getboolean(
-            "System", "Verbose") or self.args.verbose)
-        Logger.DEBUG = (self.config.getboolean(
-            "System", "Debug") or self.args.debug)
+        Logger.VERBOSE = (self.config.getboolean("System", "Verbose") if self.config.has_option("System", "Verbose") else False) or self.args.verbose
+        Logger.DEBUG = (self.config.getboolean("System", "Debug") if self.config.has_option("System", "Debug") else False) or self.args.debug
 
         # Default output location
         if self.args.outputFolder == "":
-            self.args.outputFolder = "." + os.path.sep + \
-                str(self.args.hostFile.name).split(".")[0]
+            self.args.outputFolder = "." + os.path.sep + str(self.args.hostFile.name).split(".")[0]
 
-            # Nmap scan output folder
+        # Nmap scan output folder
         self.nmap_path = os.path.join(self.args.outputFolder, __nmap_folder__)
 
         # Check folder for existing output and nmap folders
         if not os.path.exists(self.args.outputFolder):
             os.makedirs(self.args.outputFolder)
         elif not self.args.noResume:
-            print(
-                f"{Color.yellow()}[*]{Color.reset()} Resuming previous session")
+            print(Color.yellow() + "[*]" + Color.reset() + " Resuming previous session")
 
         if not os.path.exists(self.nmap_path):
             os.makedirs(self.nmap_path)
@@ -377,23 +367,23 @@ class Vanquish:
         if self.args.noColor:
             Color.ENABLE_COLOR = False
 
-        # Metasploit workspace name - the workspace name is the name of the host file minus it's extension
+        # Metasploit workspace name - the workspace name is the name of the host file minus its extension
         if self.args.workspace == "":
             self.workspace = str(self.args.hostFile.name).split(".")[0]
         else:
             self.workspace = self.args.workspace
 
         # load attack plan
-        self.plan = configparser.ConfigParser()
-        self.plan.read(self.args.attackPlanFile)
+        self.plan = ConfigParser.ConfigParser(interpolation=None, strict=False)
+        self.plan.read(self.args.attackPlanFile, encoding='utf-8')
 
         self.nmap_dns_server = ""
         if self.args.dnsServer != "":
-            self.nmap_dns_server = " --dns-server "+self.args.dnsServer
+            self.nmap_dns_server = " --dns-server " + self.args.dnsServer
 
         self.proxy_server = ""
         if self.args.proxy != "":
-            self.proxy_server = " --proxy "+self.args.proxy
+            self.proxy_server = " --proxy " + self.args.proxy
 
         # Master NMAP Data Structure Dict
         self.nmap_dict = {}
@@ -413,72 +403,84 @@ class Vanquish:
         self.thread_pool_errors = []
 
         # Lists discovered during enumeration
-        self.findings = {'users': [], 'urls': [],
-                         'groups': [], 'passwords': [], 'vulnerabilities': []}
+        self.findings = {'users': [], 'urls': [], 'groups': [], 'passwords': [], 'vulnerabilities': []}
 
         # write errors to error log rather than display them on screen
-        self.command_error_log = open("commanderrorlog.txt", 'w')
+        self.command_error_log = open("commanderrorlog.txt", 'w', encoding='utf-8', errors='ignore')
         self.active_commands = "activecommands.txt"
+        self.debug_log = None
+        self.verbose_log = None
         if self.args.logging:
-            self.debug_log = open("debuglog.txt", 'w')
-            self.verbose_log = open("verboselog.txt", 'w')
+            self.debug_log = open("debuglog.txt", 'w', encoding='utf-8', errors='ignore')
+            self.verbose_log = open("verboselog.txt", 'w', encoding='utf-8', errors='ignore')
             Logger.DEBUG_FILE = self.debug_log
             Logger.VERBOSE_FILE = self.verbose_log
 
+        self.benchmarking_csv = None
         if self.args.benchmarking:
-            self.benchmarking_csv = open("benchmark.csv", 'w')
+            self.benchmarking_csv = open("benchmark.csv", 'w', encoding='utf-8', errors='ignore')
             self.benchmarking_csv.write("TIME,COMMAND\n")
-        # sys.stderr = self.command_error_log
-        self.devnull = open(os.devnull, 'w')
+        self.devnull = subprocess.DEVNULL
+
+    def close(self):
+        if hasattr(self, 'command_error_log') and self.command_error_log and not self.command_error_log.closed:
+            self.command_error_log.close()
+        if hasattr(self, 'debug_log') and self.debug_log and not self.debug_log.closed:
+            self.debug_log.close()
+        if hasattr(self, 'verbose_log') and self.verbose_log and not self.verbose_log.closed:
+            self.verbose_log.close()
+        if hasattr(self, 'benchmarking_csv') and self.benchmarking_csv and not self.benchmarking_csv.closed:
+            self.benchmarking_csv.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
     # Parse Nmap XML - Reads all the Nmap xml files in the Nmap folder
-
     def parse_nmap_xml(self):
         Logger.verbose("[+] Reading Nmap XML Output Files...")
         port_attribs_to_read = ['protocol', 'portid']
-        service_attribs_to_read = ['name', 'product',
-                                   'version', 'extrainfo', 'method', 'tunnel']
+        service_attribs_to_read = ['name', 'product', 'version', 'extrainfo', 'method', 'tunnel']
         state_attribs_to_read = ['state', 'reason']
-        xml_nmap_elements = {
-            'service': service_attribs_to_read, 'state': state_attribs_to_read}
+        xml_nmap_elements = {'service': service_attribs_to_read, 'state': state_attribs_to_read}
         search_address = {'path': 'address', 'el': 'addr'}
         search_ports = {'path': 'ports', 'el': 'portid'}
-        nmap_output_path = os.path.join(
-            self.args.outputFolder, __nmap_folder__)
+        nmap_output_path = os.path.join(self.args.outputFolder, __nmap_folder__)
+        if not os.path.exists(nmap_output_path):
+            return
         for nmap_file in os.listdir(nmap_output_path):
             if nmap_file.endswith(".xml"):
                 nmap_file_path = os.path.join(nmap_output_path, nmap_file)
                 Logger.debug("XML PARSE: " + nmap_file_path)
                 try:
                     tree = ET.parse(nmap_file_path)
-                except:
-                    Logger.debug(
-                        "XML PARSE: Error Parsing : " + nmap_file_path)
+                except Exception as e:
+                    Logger.debug("XML PARSE: Error Parsing : " + nmap_file_path + " - " + str(e))
                     continue
                 root = tree.getroot()
                 for i in root.iter('host'):
                     e = i.find(search_address['path'])
                     find_ports = i.find(search_ports['path'])
-                    if find_ports is not None:
+                    if find_ports is not None and e is not None:
                         addr = e.get(search_address['el'])
+                        if addr is None:
+                            continue
                         if self.nmap_dict.get(addr, None) is None:
                             self.nmap_dict[addr] = {}
                         port_dict = []
                         for port in find_ports.iter('port'):
                             element_dict = {}
                             attribute_dict = {}
-                            self.xml_to_dict(
-                                port_attribs_to_read, port, element_dict)
+                            self.xml_to_dict(port_attribs_to_read, port, element_dict)
                             for xml_element in xml_nmap_elements:
                                 for attribute in port.iter(xml_element):
                                     if attribute is not None:
-                                        self.xml_to_dict(
-                                            xml_nmap_elements[xml_element], attribute, attribute_dict)
-                                        element_dict = self.merge_two_dicts(
-                                            element_dict, attribute_dict)
+                                        self.xml_to_dict(xml_nmap_elements[xml_element], attribute, attribute_dict)
+                                        element_dict = self.merge_two_dicts(element_dict, attribute_dict)
                                         if attribute.get('hostname', '') != '':
-                                            self.nmap_dict[addr]['hostname'] = attribute.get(
-                                                'hostname', '')
+                                            self.nmap_dict[addr]['hostname'] = attribute.get('hostname', '')
                                         if attribute.get('tunnel', '') == 'ssl' and attribute.get('name', '') == 'http':
                                             element_dict['name'] = 'https'
                                         # If we have encountered an unknown service set the name to unknown so we can still enum
@@ -489,8 +491,8 @@ class Vanquish:
                             # Check to see if this port already exists
                             port_was_merged = False
                             if self.nmap_dict[addr].get('ports', None) is not None:
-                                for pos, port in enumerate(self.nmap_dict[addr]['ports']):
-                                    if port['portid'] == element_dict['portid']:
+                                for pos, port_item in enumerate(self.nmap_dict[addr]['ports']):
+                                    if port_item.get('portid') == element_dict.get('portid'):
                                         port_was_merged = True
                                         for element in service_attribs_to_read:
                                             if len(element_dict.get(element, '')) > 0:
@@ -501,8 +503,7 @@ class Vanquish:
                             self.nmap_dict[addr]['ports'] = port_dict
                         else:
                             self.nmap_dict[addr]['ports'] = self.nmap_dict[addr]['ports'] + port_dict
-            Logger.debug(
-                "NMAP XML PARSE: - Finished NMAP Dict Creation:\n " + str(self.nmap_dict))
+            Logger.debug("NMAP XML PARSE: - Finished NMAP Dict Creation:\n " + str(self.nmap_dict))
 
     @staticmethod
     def merge_two_dicts(x, y):
@@ -517,37 +518,44 @@ class Vanquish:
             return False
         Logger.debug("exploit_search()")
         for host in self.nmap_dict:
-            for service in self.nmap_dict[host]['ports']:
+            for service in self.nmap_dict[host].get('ports', []):
                 if service.get('product', '') != '' and service.get('version', '') != '':
-                    version_digits = ' '.join(str(x) for x in re.findall(
-                        r'\d+', service.get('version', '')))
+                    version_digits = ' '.join(str(x) for x in re.findall(r'\d+', service.get('version', '')))
                     command_keys = {
                         'output': self.get_enumeration_path(host, service['name'], service['portid'], command_label),
                         'target': service.get('product', '')}
-                    # Resume file already exists
-                    base, filename = os.path.split(command_keys['output'])
-                    if not self.args.noResume and self.find_files(base, filename + ".*").__len__() > 0:
+                    base, filename = os.path.split(command_keys['output'])  # Resume file already exists
+                    if not self.args.noResume and len(self.find_files(base, filename + ".*")) > 0:
                         Logger.debug("exploit_search() -Exploit Search file already exists: "
                                      + command_keys['output'])
                     else:
-                        self.execute_command(self.prepare_command(
-                            command_label, command_keys))
-                        with open(command_keys['output'] + ".json") as data_file:
+                        if not self.config.has_section(command_label):
+                            Logger.debug("exploit_search() - Section not found in config: " + command_label)
+                            continue
+                        self.execute_command(self.prepare_command(command_label, command_keys))
+                        json_file = command_keys['output'] + ".json"
+                        if not os.path.exists(json_file):
+                            continue
+                        with open(json_file, 'r', encoding='utf-8', errors='ignore') as data_file:
                             try:
                                 data = json.load(data_file)
-                            except:
+                            except Exception:
                                 continue
-                            if len(data['RESULTS']) == 0:
-                                os.remove(command_keys['output'] + ".json")
+                            results = data.get('RESULTS') or data.get('RESULTS_EXPLOIT') or []
+                            if len(results) == 0:
+                                try:
+                                    os.remove(json_file)
+                                except OSError:
+                                    pass
                             else:  # copy exploits to exploit folder
                                 exploits_path = os.path.join(base, "exploits")
                                 if not os.path.exists(exploits_path):
                                     os.makedirs(exploits_path)
-                                for exploit in data['RESULTS']:
-                                    exploit_base, exploit_filename = os.path.split(
-                                        exploit['Path'])
-                                    copyfile(exploit['Path'], os.path.join(
-                                        exploits_path, exploit_filename))
+                                for exploit in results:
+                                    exploit_path = exploit.get('Path') or exploit.get('path')
+                                    if exploit_path and os.path.exists(exploit_path):
+                                        exploit_base, exploit_filename = os.path.split(exploit_path)
+                                        copyfile(exploit_path, os.path.join(exploits_path, exploit_filename))
 
     # Enumerate a phase
     # phases are defined in attackplan.ini
@@ -558,10 +566,12 @@ class Vanquish:
         Logger.debug("Enumerate - " + phase_name)
         self.phase_commands = []
         self.thread_pool_errors = []
+        if not self.plan.has_section(phase_name):
+            Logger.debug("enumerate() - Section not found in attack plan: " + phase_name)
+            return
         for host in self.nmap_dict:
             Logger.debug("enumerate() - Host: " + host)
-            host_ports = [d['portid']
-                          for d in self.nmap_dict[host]['ports'] if 'portid' in d]
+            host_ports = [str(d['portid']) for d in self.nmap_dict[host].get('ports', []) if 'portid' in d]
             if self.plan.has_option(phase_name, 'always'):
                 self.nmap_dict[host]['ports'].append(
                     {'state': 'open', 'name': 'always', 'portid': '0', 'product': 'Ruadan Added Always Service'})
@@ -570,118 +580,101 @@ class Vanquish:
                     self.run_once[phase_name] = host
                     self.nmap_dict[host]['ports'].append(
                         {'state': 'open', 'name': 'run once', 'portid': '-1', 'product': 'Ruadan Added Run Once Service'})
-            for service in self.nmap_dict[host]['ports']:
+            for service in list(self.nmap_dict[host].get('ports', [])):
                 Logger.debug("\tenumerate() - port_number: " + str(service))
                 for known_service, ports in self.config.items('Service Ports'):
-                    if not ('closed' in service['state'] or 'filtered' in service['state']) \
-                            and (service['name'].find(known_service) != -1 or service['portid'] in ports.split(',')):
+                    service_name = service.get('name', '')
+                    service_state = service.get('state', '')
+                    service_port = str(service.get('portid', ''))
+                    if not ('closed' in service_state or 'filtered' in service_state) \
+                            and (service_name.find(known_service) != -1 or service_port in ports.split(',')):
                         if self.plan.has_option(phase_name, known_service):
                             for command_label in self.plan.get(phase_name, known_service).split(','):
+                                command_label = command_label.strip()
                                 if command_label != '':
+                                    if not self.config.has_section(command_label):
+                                        Logger.debug("\tenumerate() - command section not found: " + command_label)
+                                        continue
                                     command_keys = {
-                                        'output': self.get_enumeration_path(host, service['name'], service['portid'],
+                                        'output': self.get_enumeration_path(host, service_name, service_port,
                                                                             command_label),
                                         'output folder': self.args.outputFolder,
                                         'output nmap': os.path.join(self.nmap_path, command_label.replace(" ", "_") + "_" + host.replace(".", "_")),
                                         'target': host,
                                         'domain': self.args.domain,
-                                        'service': service['name'],
-                                        'port': service['portid'],
+                                        'service': service_name,
+                                        'port': service_port,
                                         'host ports comma': ",".join(host_ports),
                                         'host ports space': " ".join(host_ports),
-                                        'host file': self.args.hostFile.name,
+                                        'host file': self.args.hostFile.name if hasattr(self.args.hostFile, 'name') else str(self.args.hostFile),
                                         'nmap dns server': self.nmap_dns_server,
                                         'nmap proxy server': self.proxy_server,
                                         'proxy server': self.args.proxy,
                                         'workspace': self.workspace,
                                     }
-                                    # Resume file already exists
-                                    base, filename = os.path.split(
-                                        command_keys['output'])
-                                    if not self.args.noResume and self.find_files(base, filename + ".*").__len__() > 0:
+                                    base, filename = os.path.split(command_keys['output'])  # Resume file already exists
+                                    if not self.args.noResume and len(self.find_files(base, filename + ".*")) > 0:
                                         Logger.debug("enumerate() - RESUME - output file already exists: "
                                                      + command_keys['output'])
                                     else:
-                                        command = self.prepare_command(
-                                            command_label, command_keys)
+                                        command = self.prepare_command(command_label, command_keys)
                                         # TODO: Check for dictionary tags / list tags / findings lists
                                         do_not_append = False
-                                        if "<"+__findings_label_dynamic__+" " in command:
-                                            findings_path = os.path.join(
-                                                self.args.outputFolder, host.replace(".", "_"))
-                                            findings_files = self.find_files(
-                                                findings_path, "*.txt")
+                                        if "<" + __findings_label_dynamic__ + " " in command:
+                                            findings_path = os.path.join(self.args.outputFolder, host.replace(".", "_"))
+                                            findings_files = self.find_files(findings_path, "*.txt")
                                             for findings_file in findings_files:
-                                                replacement = "<"+__findings_label_dynamic__ + \
-                                                    " " + \
-                                                    str(findings_file).replace(
-                                                        ".txt", "")+">"
+                                                replacement = "<" + __findings_label_dynamic__ + " " + str(findings_file).replace(".txt", "") + ">"
                                                 if replacement in command:
-                                                    findings_file_path = os.path.join(
-                                                        findings_path, findings_file)
-                                                    command = command.replace(
-                                                        replacement, findings_file_path)
+                                                    findings_file_path = os.path.join(findings_path, findings_file)
+                                                    command = command.replace(replacement, findings_file_path)
                                         # Still have a findings tag in the command?  do not add it to the list -
                                         if "<" + __findings_label_dynamic__ + " " in command:
                                             do_not_append = True
-                                            Logger.debug(
-                                                "enumerate() - Did not append command that still contained findings label" + command)
+                                            Logger.debug("enumerate() - Did not append command that still contained findings label " + command)
                                         # Findings Lists
                                         if "<" + __findings_label_list_dynamic__ + " " in command:
-                                            findings_path = os.path.join(
-                                                self.args.outputFolder, host.replace(".", "_"))
-                                            findings_files = self.find_files(
-                                                findings_path, "*.txt")
+                                            findings_path = os.path.join(self.args.outputFolder, host.replace(".", "_"))
+                                            findings_files = self.find_files(findings_path, "*.txt")
                                             for findings_file in findings_files:
                                                 replacement = "<" + __findings_label_list_dynamic__ + " " + str(
                                                     findings_file).replace(".txt", "") + ">"
-                                                # TODO Delimited Findings ? REGEX Delim
-                                                # delim = "<" + __findings_label_dynamic__ + " " + str(findings_file).replace(".txt", "") + " .+>"
                                                 if replacement in command:
-                                                    findings_file_path = os.path.join(
-                                                        findings_path, findings_file)
-                                                    with open(findings_file_path) as f:
-                                                        content = [
-                                                            x.strip() for x in f.readlines()]
+                                                    findings_file_path = os.path.join(findings_path, findings_file)
+                                                    with open(findings_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                                        content = [x.strip() for x in f.readlines() if x.strip()]
                                                         for line in content:
                                                             new_command = command
-                                                            new_command = new_command.replace(
-                                                                replacement, line)
-                                                            self.phase_commands.append(
-                                                                new_command)
+                                                            new_command = new_command.replace(replacement, line)
+                                                            self.phase_commands.append(new_command)
                                         # Lists
                                         for section in self.config.sections():
-                                            if "List" in section:
-                                                if command.find(
-                                                        "<" + section + ">") != -1:  # include entire list from section
+                                            if section.startswith("List ") or "List" in section:
+                                                if command.find("<" + section + ">") != -1:  # include entire list from section
                                                     do_not_append = True
                                                     for item in self.config.items(section):
                                                         new_command = command
-                                                        new_command = new_command.replace(
-                                                            "<" + section + ">", item[1])
-                                                        self.phase_commands.append(
-                                                            new_command)
+                                                        new_command = new_command.replace("<" + section + ">", item[1])
+                                                        self.phase_commands.append(new_command)
                                                 else:
                                                     for item in self.config.items(section):
-                                                        command = command.replace(
-                                                            "<" + item[0] + ">", item[1])
-                                        if not do_not_append and "<"+__findings_label_dynamic__ not in command:
+                                                        command = command.replace("<" + item[0] + ">", item[1])
+                                        if not do_not_append and "<" + __findings_label_dynamic__ not in command:
                                             self.phase_commands.append(command)
-                                            Logger.debug(
-                                                "enumerate() - added command : " + command_label)
+                                            Logger.debug("enumerate() - added command : " + command_label)
                                         else:
-                                            Logger.debug(
-                                                "enumerate() - skipped command : " + command_label)
+                                            Logger.debug("enumerate() - skipped command : " + command_label)
                         else:
                             Logger.debug("\tenumerate() - NO command section found for phase: " + phase_name +
                                          " service name: " + known_service)
         self.phase_commands = self.remove_duplicates(self.phase_commands)
-        pool = ThreadPool(self.args.threadPool)
-        for _ in bar(pool.imap_unordered(self.execute_command, self.phase_commands),
-                     expected_size=len(self.phase_commands)):
-            pass
-        pool.close()
-        pool.join()
+        if len(self.phase_commands) > 0:
+            pool = ThreadPool(self.args.threadPool)
+            for _ in bar(pool.imap_unordered(self.execute_command, self.phase_commands),
+                         expected_size=len(self.phase_commands)):
+                pass
+            pool.close()
+            pool.join()
 
     @staticmethod
     def remove_duplicates(list_with_duplicates):
@@ -691,72 +684,70 @@ class Vanquish:
         Logger.verbose("root@kali:/# " + command)
         Logger.debug("execute_command() - Starting: - " + command)
         command_start_time = time.time()
-        with open(self.active_commands, 'w') as active_command_report_file:
-            active_command_report_file.write(
-                "Last Update: " + str(datetime.now()) + "\n")
-            active_command_report_file.write(
-                pformat(self.thread_pool_commands, indent=4, width=1))
+        with open(self.active_commands, 'w', encoding='utf-8', errors='ignore') as active_command_report_file:
+            active_command_report_file.write("Last Update: " + str(datetime.now()) + "\n")
+            active_command_report_file.write(pformat(self.thread_pool_commands, indent=4, width=1))
         self.thread_pool_commands.append(command)
-        process = Popen(command, shell=True, stdin=PIPE,
-                        stderr=self.command_error_log, stdout=self.devnull)
-        process.stdin.close()
-        # FIXME: Process wait is causing the application to hang in some fringe cases - need to find a better way
+        process = Popen(command, shell=True, stdin=PIPE, stderr=self.command_error_log, stdout=self.devnull)
+        if process.stdin:
+            process.stdin.close()
+        # Process wait is causing the application to hang in some fringe cases
         if process.wait() != 0:
             Logger.debug("execute_command() - ERRORS EXECUTING:  - " + command)
             self.thread_pool_errors.append(command)
         Logger.debug("execute_command() - COMPLETED! - " + command)
-        self.thread_pool_commands.remove(command)
+        if command in self.thread_pool_commands:
+            self.thread_pool_commands.remove(command)
         if self.args.benchmarking:
-            with open(self.active_commands, 'w') as active_command_report_file:
-                active_command_report_file.write(
-                    "Last Update: " + str(datetime.now())+"\n")
-                active_command_report_file.write(
-                    pformat(self.thread_pool_commands, indent=4, width=1))
+            with open(self.active_commands, 'w', encoding='utf-8', errors='ignore') as active_command_report_file:
+                active_command_report_file.write("Last Update: " + str(datetime.now()) + "\n")
+                active_command_report_file.write(pformat(self.thread_pool_commands, indent=4, width=1))
             self.benchmarking_csv.write(
-                time.strftime('%H:%M:%S', time.gmtime(time.time() - command_start_time)) + "," + command.replace(",",
-                                                                                                                 " ") + "\n")
+                time.strftime('%H:%M:%S', time.gmtime(time.time() - command_start_time)) + "," + command.replace(",", " ") + "\n")
 
     def enumerate_plan(self, plan):
+        if not self.plan.has_section(plan) or not self.plan.has_option(plan, "Order"):
+            return
         for phase in self.plan.get(plan, "Order").split(","):
-            print(f"{Color.green()}[+]{Color.reset()} Starting Phase: {phase}")
+            phase = phase.strip()
+            if not phase:
+                continue
+            print(Color.green() + "[+]" + Color.reset() + " Starting Phase: " + phase)
             Logger.verbose("[+] Starting Phase: " + phase)
             try:
                 if self.args.phase == phase or self.args.phase == '':
                     self.enumerate(phase)
             except KeyboardInterrupt:
-                Logger.debug(
-                    "[X] Keyboard Interrupt Detected... exiting phase:: " + phase)
-                Logger.debug("[X] Thread Pool at Interrupt: \n" +
-                             pformat(self.thread_pool_commands))
-                print(
-                    f"{Color.red()}[X]{Color.reset()} Keyboard Interrupt Detected... exiting phase: {phase}")
-                print(
-                    f"{Color.red()}[X]{Color.reset()} Thread Pool at Interrupt:")
+                Logger.debug("[X] Keyboard Interrupt Detected... exiting phase:: " + phase)
+                Logger.debug("[X] Thread Pool at Interrupt: \n" + pformat(self.thread_pool_commands))
+                print(Color.red() + "[X]" + Color.reset() + " Keyboard Interrupt Detected... exiting phase: " + phase)
+                print(Color.red() + "[X]" + Color.reset() + " Thread Pool at Interrupt:")
                 pprint(self.thread_pool_commands)
                 continue
             except ValueError as err:
-                # Assuming bar() handles its own printing now
-                # bar(self.phase_commands, expected_size=len(self.phase_commands))
+                bar(self.phase_commands, expected_size=len(self.phase_commands))
                 if len(self.thread_pool_errors) > 0:
                     Logger.debug("[X] Phase completed but encountered the following errors:  \n"
                                  + pformat(self.thread_pool_errors) + pformat(self.thread_pool_commands))
-                    print(f"{Color.red()}[X]{Color.reset()} Phase completed but encountered the following errors: \n"
+                    print(Color.red() + "[X]" + Color.reset() + " Phase completed but encountered the following errors: \n"
                           + pformat(self.thread_pool_errors) + pformat(self.thread_pool_commands))
                 continue
             self.parse_nmap_xml()
-            self.write_report_file(
-                self.nmap_dict, self.args.outputFolder, self.args.reportFile)
+            self.write_report_file(self.nmap_dict, self.args.outputFolder, self.args.reportFile)
             Logger.verbose("[+] Finding's Post Processing...")
             self.findings_post_processing()
 
     def findings_post_processing(self):
         for current_host in self.hosts:
-            host_path = os.path.join(
-                self.args.outputFolder, current_host.replace(".", "_"))
+            current_host = current_host.strip()
+            if not current_host or current_host.startswith("#"):
+                continue
+            host_path = os.path.join(self.args.outputFolder, current_host.replace(".", "_"))
+            if not os.path.exists(host_path):
+                continue
             files_to_process = [os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(host_path))
                                 for f in fn]
-            self.findings = {'users': [], 'urls': [], 'groups': [
-            ], 'passwords': [], 'vulnerabilities': []}
+            self.findings = {'users': [], 'urls': [], 'groups': [], 'passwords': [], 'vulnerabilities': []}
             # TODO: Load findings from files here for merging - dont overwrite user added findings...
 
             for file in files_to_process:
@@ -770,51 +761,48 @@ class Vanquish:
                     for item in self.config.items(config_command_name):
                         if __findings_label__ in item[0]:
                             list_type = str(item[0]).split(" ")[1]
-                            # remove digits in item name
-                            list_type = ''.join(
-                                [i for i in list_type if not i.isdigit()])
+                            list_type = ''.join([i for i in list_type if not i.isdigit()])  # remove digits in item name
                             if self.findings.get(list_type) is None:
                                 self.findings[list_type] = []
-                            regex = re.compile(item[1])
+                            try:
+                                regex = re.compile(item[1])
+                            except re.error:
+                                continue
                             # First try line by line
                             wholefile = ""
-                            with open(file) as f:
-                                for line in f:
-                                    wholefile += line
-                                    match = regex.match(line)
-                                    if match is not None:
-                                        self.findings[list_type].append(
-                                            match.group(1))
-                                        announcement = current_host + \
-                                            ":  \t" + match.group(1)
-                                        if __accounce_label__ in item[0] and self.announced.get(announcement) != 1:
-                                            self.announced[announcement] = 1
-                                            print(f"{Color.redback()}[!] {announcement} "
-                                                  f"{re.sub(__findings_label__ + ' ' + __accounce_label__+ r'\d*','',str(item[0]))}"
-                                                  f"{Color.reset()}")
+                            try:
+                                with open(file, 'r', encoding='utf-8', errors='ignore') as f:
+                                    for line in f:
+                                        wholefile += line
+                                        match = regex.match(line)
+                                        if match is not None and match.groups():
+                                            self.findings[list_type].append(match.group(1))
+                                            announcement = current_host + ":  \t" + match.group(1)
+                                            if __accounce_label__ in item[0] and self.announced.get(announcement) != 1:
+                                                self.announced[announcement] = 1
+                                                print(Color.redback() + "[!] " + announcement +
+                                                      " " + re.sub(__findings_label__ + " " + __accounce_label__ + r"\d*", "", str(item[0]))
+                                                      + Color.reset())
+                            except (OSError, UnicodeError):
+                                continue
 
                             # Next try multiline search mode
-                            matches = re.search(
-                                item[1], wholefile, re.MULTILINE)
-                            if matches and matches.group(1) is not None:
-                                self.findings[list_type].append(
-                                    matches.group(1))
-                                announcement = current_host + \
-                                    ":  \t" + matches.group(1)
+                            matches = re.search(item[1], wholefile, re.MULTILINE)
+                            if matches and matches.groups() and matches.group(1) is not None:
+                                self.findings[list_type].append(matches.group(1))
+                                announcement = current_host + ":  \t" + matches.group(1)
                                 if __accounce_label__ in item[0] and self.announced.get(announcement) != 1:
                                     self.announced[announcement] = 1
-                                    print(f"{Color.redback()}[!] {announcement} "
-                                          f"{re.sub(__findings_label__ + ' ' + __accounce_label__+ r'\d*','',str(item[0]))}"
-                                          f"{Color.reset()}")
+                                    print(Color.redback() + "[!] " + announcement +
+                                          " " + re.sub(__findings_label__ + " " + __accounce_label__ + r"\d*", "", str(item[0])) +
+                                          Color.reset())
             # Remove duplicates and output results to findings files
             for findings_list in self.findings:
-                self.findings[findings_list] = self.remove_duplicates(
-                    self.findings[findings_list])
+                self.findings[findings_list] = self.remove_duplicates(self.findings[findings_list])
                 self.findings[findings_list].sort()
                 if len(self.findings[findings_list]) > 0:
-                    with open(os.path.join(host_path, findings_list + ".txt"), 'w') as findings_file:
-                        findings_file.write(
-                            "\n".join(self.findings[findings_list]))
+                    with open(os.path.join(host_path, findings_list + ".txt"), 'w', encoding='utf-8', errors='ignore') as findings_file:
+                        findings_file.write("\n".join(self.findings[findings_list]))
             # Calculate Risk Score
             risk_score = 0
             for findings_list in self.findings:
@@ -838,44 +826,43 @@ class Vanquish:
         ip_path = os.path.join(self.args.outputFolder, host.replace(".", "_"))
         if not os.path.exists(ip_path):
             os.makedirs(ip_path)
-        service_path = os.path.join(ip_path, service)
+        service_path = os.path.join(ip_path, service.replace(" ", "_"))
         if not os.path.exists(service_path):
             os.makedirs(service_path)
         return os.path.join(service_path, command.replace(" ", "_") + "_" + str(port))
 
     def prepare_command(self, command, keyvalues):
-        command = self.config.get(command, "command")
-        Logger.debug("prepare_command() command: " + command)
-        for k in keyvalues.keys():  # Changed iterkeys() to keys() for Python 3
+        command_str = self.config.get(command, "command")
+        Logger.debug("prepare_command() command: " + command_str)
+        for k in keyvalues:
             Logger.debug("    prepare_command() key: " + k)
-            command = command.replace("<" + k + ">", keyvalues[k])
-        return command
+            command_str = command_str.replace("<" + k + ">", str(keyvalues[k]))
+        return command_str
 
-    def xml_to_dict(self, list_to_read, xml_elements, dict):
+    def xml_to_dict(self, list_to_read, xml_elements, dict_obj):
         for element in list_to_read:
             value = xml_elements.get(element, '')
-            # Changed 'is "name"' to '== "name"' for string comparison
             if element == "name" and self.config.has_option("Service Labels", value):
-                dict[element] = self.config.get("Service Labels", value)
+                dict_obj[element] = self.config.get("Service Labels", value)
             else:
-                dict[element] = value
-        return dict
+                dict_obj[element] = value
+        return dict_obj
 
     def write_report_file(self, data, folder, file):
         report_path = os.path.join(folder, file)
-        f = open(report_path, 'w')
-        f.write(pformat(data, indent=4, width=1))
-        f.close()
+        with open(report_path, 'w', encoding='utf-8', errors='ignore') as f:
+            f.write(pformat(data, indent=4, width=1))
 
     def write_csv_report_file(self, data, header, folder, file):
         report_path = os.path.join(folder, file)
-        f = open(report_path, 'w')
-        f.write(header)
-        for item in data:
-            f.write(str(item[0])+","+str(item[1])+"\n")
-        f.close()
+        with open(report_path, 'w', encoding='utf-8', errors='ignore') as f:
+            f.write(header)
+            for item in data:
+                f.write(str(item[0]) + "," + str(item[1]) + "\n")
 
     def find_files(self, base, pattern):
+        if not os.path.exists(base):
+            return []
         return [n for n in fnmatch.filter(os.listdir(base), pattern) if
                 os.path.isfile(os.path.join(base, n))]
 
@@ -891,108 +878,100 @@ class Vanquish:
 
     @staticmethod
     def banner_flame():
-        print(Color.red()+'\n'
-              '                  )             (   (    ')
-        print('         (     ( /(   (         )\ ))\ ) ')
-        print(' (   (   )\    )\())( )\     ( (()/(()/( ')
-        print(' )\  )((((_)( ((_)\ )((_)    )\ /(_))(_) ')
-        print('((_)((_)\ _ )\ _((_|(_)_  _ ((_|_))(_))  ')
-        print(' ____  _   _   _    ____    _    _   _ ')
-        print('|  _ \| | | | / \  |  _ \  / \  | \ | |')
-        print('| |_) | | | |/ _ \ | | | |/ _ \ |  \| |')
-        print('|  _ <| |_| / ___ \| |_| / ___ \| |\  |')
-        print('|_| \_\\\___/_/   \_\____/_/   \_\_| \_|')
-
-
-#        print('         (     ( /(   (         )\ ))\ ) ( /(  ')
-#        print(' (   (   )\    )\())( )\     ( (()/(()/( )\()) ')
-#        print(' )\  )((((_)( ((_)\ )((_)    )\ /(_))(_)|(_)\  ')
-#        print('((_)((_)\ _ )\ _((_|(_)_  _ ((_|_))(_))  _((_) ')
-#        print('\ \ / /(_)_\(_) \| |/ _ \| | | |_ _/ __|| || | ')
-#        print(' \ V /  / _ \ | .` | (_) | |_| || |\__ \| __ | ')
-#        print('  \_/  /_/ \_\|_|\_|\__\_\\\\___/|___|___/|_||_| ')
-        print('Get to shell.'+Color.reset())
+        print(Color.red() + '\n' +
+              '                  )             (   (    \n' +
+              '         (     ( /(   (         )\\ ))\\ ) \n' +
+              ' (   (   )\\    )\\())( )\\     ( (()/(()/( \n' +
+              ' )\\  )((((_)( ((_)\\ )((_)    )\\ /(_))(_) \n' +
+              '((_)((_)\\ _ )\\ _((_|(_)_  _ ((_|_))(_))  \n' +
+              ' ____  _   _   _    ____    _    _   _ \n' +
+              '|  _ \\| | | | / \\  |  _ \\  / \\  | \\ | |\n' +
+              '| |_) | | | |/ _ \\ | | | |/ _ \\ |  \\| |\n' +
+              '|  _ <| |_| / ___ \\| |_| / ___ \\| |\\  |\n' +
+              '|_| \\_\\\\___/_/   \\_\\____/_/   \\_\\_| \\_|\n' +
+              'Get to shell.' + Color.reset())
 
     @staticmethod
     def banner_doom():
-        print(Color.yellow()+'\n '
-              '__      __     _   _  ____  _    _ _____  _____ _    _ ')
-        print(' \ \    / /\   | \ | |/ __ \| |  | |_   _|/ ____| |  | |')
-        print('  \ \  / /  \  |  \| | |  | | |  | | | | | (___ | |__| |')
-        print('   \ \/ / /\ \ | . ` | |  | | |  | | | |  \___ \|  __  |')
-        print('    \  / ____ \| |\  | |__| | |__| |_| |_ ____) | |  | |')
-        print('     \/_/    \_\_| \_|\___\_\\\\____/|_____|_____/|_|  |_|')
-        print('Set your Mertilizers on "deep fat fry".'+Color.reset())
+        print(Color.yellow() + '\n ' +
+              '__      __     _   _  ____  _    _ _____  _____ _    _ \n' +
+              ' \\ \\    / /\\   | \\ | |/ __ \\| |  | |_   _|/ ____| |  | |\n' +
+              '  \\ \\  / /  \\  |  \\| | |  | | |  | | | | | (___ | |__| |\n' +
+              '   \\ \\/ / /\\ \\ | . ` | |  | | |  | | | |  \\___ \\|  __  |\n' +
+              '    \\  / ____ \\| |\\  | |__| | |__| |_| |_ ____) | |  | |\n' +
+              '     \\/_/    \\_\\_| \\_|\\___\\_\\\\____/|_____|_____/|_|  |_|\n' +
+              'Set your Mertilizers on "deep fat fry".' + Color.reset())
 
     @staticmethod
     def banner_block():
-        print(Color.magenta()+''
-              '\n __   ___   _  _  ___  _   _ ___ ___ _  _ ')
-        print(' \ \ / /_\ | \| |/ _ \| | | |_ _/ __| || |')
-        print('  \ V / _ \| .` | (_) | |_| || |\__ \ __ |')
-        print('   \_/_/ \_\_|\_|\__\_\\\\___/|___|___/_||_|')
-        print('Faster than a one-legged man in a butt kicking contest.'+Color.reset())
+        print(Color.magenta() + '\n' +
+              ' __   ___   _  _  ___  _   _ ___ ___ _  _ \n' +
+              ' \\ \\ / /_\\ | \\| |/ _ \\| | | |_ _/ __| || |\n' +
+              '  \\ V / _ \\| .` | (_) | |_| || |\\__ \\ __ |\n' +
+              '   \\_/_/ \\_\\_|\\_|\\___\\_\\\\___/|___|___/_||_|\n' +
+              'Faster than a one-legged man in a butt kicking contest.' + Color.reset())
 
     ##################################################################################
     # Entry point for command-line execution
     ##################################################################################
 
-    # Changed @property to a regular method as main logic doesn't seem to need property behavior
+    @property
     def main(self):
         start_time = time.time()
         print(Color.cyan())
-        print(f"Configuration file: {self.args.configFile}")
-        print(f"Attack plan file:   {self.args.attackPlanFile}")
-        print(f"Output Path:        {self.args.outputFolder}")
-        print(f"Host File:          {self.args.hostFile.name}")
+        print("Configuration file: " + str(self.args.configFile))
+        print("Attack plan file:   " + str(self.args.attackPlanFile))
+        print("Output Path:        " + str(self.args.outputFolder))
+        print("Host File:          " + str(self.args.hostFile.name if hasattr(self.args.hostFile, 'name') else self.args.hostFile))
         print(Color.reset())
         Logger.debug("DEBUG MODE ENABLED!")
         Logger.verbose("VERBOSE MODE ENABLED!")
 
-        self.hosts = self.hosts.read().splitlines()
+        if hasattr(self.hosts, 'read'):
+            raw_hosts = self.hosts.read().splitlines()
+        elif isinstance(self.hosts, str):
+            with open(self.hosts, 'r', encoding='utf-8', errors='ignore') as hf:
+                raw_hosts = hf.read().splitlines()
+        else:
+            raw_hosts = list(self.hosts)
+        self.hosts = [h.strip() for h in raw_hosts if h.strip() and not h.strip().startswith('#')]
         Logger.verbose("Hosts:" + str(self.hosts))
         for host in self.hosts:
             self.nmap_dict[host] = {"ports": []}
 
-        for scan_phase in self.plan.get("Nmap Scans", "Order").split(","):
-            if scan_phase != '':
-                self.enumerate_plan(scan_phase)
+        if self.plan.has_section("Nmap Scans") and self.plan.has_option("Nmap Scans", "Order"):
+            for scan_phase in self.plan.get("Nmap Scans", "Order").split(","):
+                scan_phase = scan_phase.strip()
+                if scan_phase != '':
+                    self.enumerate_plan(scan_phase)
+                self.enumerate_plan("Enumeration Plan")
+        else:
             self.enumerate_plan("Enumeration Plan")
 
         # Begin Post Enumeration Phases
-        print(f"{Color.grey()}[+]{Color.reset()} Starting post enumeration...")
+        print(Color.grey() + "[+]" + Color.reset() + " Starting post enumeration...")
         self.enumerate_plan("Post Enumeration Plan")
 
         try:
-            print(
-                f"{Color.grey()}[+]{Color.reset()} Searching for matching exploits...")
+            print(Color.grey() + "[+]" + Color.reset() + " Searching for matching exploits...")
             self.exploit_search("SearchSploit JSON")
-        except Exception as e:  # Catch specific exception
-            print(f"Error during exploit search: {e}")
-            # Assuming bar() handles its own printing now
-            # bar(self.phase_commands, expected_size=len(self.phase_commands))
+        except Exception as e:
+            Logger.debug("Exploit search exception: " + str(e))
+            bar(self.phase_commands, expected_size=len(self.phase_commands))
 
         # Generate Reports
         sorted_x = sorted(self.risk_score.items(), key=operator.itemgetter(1))
-        self.write_csv_report_file(
-            sorted_x, "Host,Risk Score\n", self.args.outputFolder, "riskscores.csv")
+        self.write_csv_report_file(sorted_x, "Host,Risk Score\n", self.args.outputFolder, "riskscores.csv")
 
-        print(
-            f"{Color.grey()}[+]{Color.reset()} Elapsed Time: {time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time))}")
+        print(Color.grey() + "[+]" + Color.reset() + " Elapsed Time: " + time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time)))
         Logger.verbose("Goodbye!")
-        self.command_error_log.close()
-        if self.args.logging:
-            self.debug_log.close()
-            self.verbose_log.close()
-
-        if self.args.benchmarking:
-            self.benchmarking_csv.close()
+        self.close()
         return 0
 
 
 def main(argv=None):
-    vanquish = Vanquish(argv if argv else sys.argv[1:])
-    return vanquish.main
+    ruadan = Ruadan(argv if argv is not None else sys.argv[1:])
+    return ruadan.main
 
 
 if __name__ == "__main__":

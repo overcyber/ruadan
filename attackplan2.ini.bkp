@@ -1,10 +1,10 @@
-#= Vanquish Attack Plan Config File ============
+#= Ruadan Attack Plan Config File ============
 # Each section represents a phase of the assessment cycle
 # the values under each section represent the commands that will be run against each identified service
 # the commands are configured in the config.ini file
 
 #= Nmap Scan Ordering ============
-# The Vanquish script will alternate between an Nmap scan and the enumeration Plan
+# The Ruadan script will alternate between an Nmap scan and the enumeration Plan
 [Nmap Scans]
 Order: Nmap Fast TCP and UDP Plan,Nmap All TCP Ports Plan
 

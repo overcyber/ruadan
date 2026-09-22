@@ -1,7 +1,7 @@
 # Ruadan  
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/overcyber/ruadan/master/ruadan.png" title="Ruadan is new Vanquish name  - Kali Linux Enumeration Orchestrator"/>
+  <img src="https://raw.githubusercontent.com/overcyber/ruadan/master/ruadan.png" title="Ruadan - Kali Linux Enumeration Orchestrator"/>
 </p>
 
 Ruadan is a Kali Linux based Enumeration Orchestrator built in Python.  Ruadan leverages the opensource enumeration tools on Kali to perform multiple active information gathering phases. The results of each phase are fed into the next phase to identify vulnerabilities that could be leveraged for a remote shell.  
@@ -23,7 +23,7 @@ Ruadan can be installed on Kali Linux using the following commands:
 
     git clone https://github.com/overcyber/ruadan
     cd ruadan
-    python Ruadan2.py -install
+    python3 Ruadan2.py -install
     ruadan --help
 
 [![asciicast](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX.png)](https://asciinema.org/a/87e2AIjr9ZVF6RM8B9ObDNcEX)
@@ -138,7 +138,7 @@ Ex. credentials.txt
 
 Note: this attack plan does NOT create the >> <output>.txt file so it can be run again and again without havingto delete the output files.  This allows new credentials to be added to the list and the network to be rescanned frequently.
 
-    python Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/credentials.ini
+    python3 Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/credentials.ini
     
 **Hydra Usernames and Passwords List Scanner**
 
@@ -165,6 +165,4 @@ Passwords are stored in a similar manner in the passwords.txt file.
 
 Note: this attack plan does NOT create the >> <output>.txt file so it can be run again and again without having to delete the output files.  This allows new credentials to be added to the list and the network to be rescanned frequently.
 
-    python Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/usernamespasswords.ini
-# ruadan
-# ruadan
+    python3 Ruadan2.py -hostFile hostlist.txt -attackPlanFile ./attackplans/usernamespasswords.ini

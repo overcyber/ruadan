@@ -642,7 +642,7 @@ root@kali:/# nmap -p 80 192.168.80.111  --script http-put --script-args http-put
 root@kali:/# nmap -p 8081 192.168.80.111  --script http-put --script-args http-put.url='/.svn/entries/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/blackice-icecap/HTTP_Put_Method_Exploit_8081.txt
 root@kali:/# nmap -p 443 192.168.80.111  --script http-put --script-args http-put.url='/server-status/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/https/HTTP_Put_Method_Exploit_443.txt
 root@kali:/# nmap -p 8081 192.168.80.111  --script http-put --script-args http-put.url='/evil/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/blackice-icecap/HTTP_Put_Method_Exploit_8081.txt
-root@kali:/# echo Hello from Vanquish! > ./uploadtest.txt
+root@kali:/# echo Hello from RUADAN! > ./uploadtest.txt
 root@kali:/# nmap -p 443 192.168.80.111  --script http-put --script-args http-put.url='/cgi-bin/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/https/HTTP_Put_Method_Exploit_443.txt
 root@kali:/# nmap -p 8080 192.168.80.111  --script http-put --script-args http-put.url='/crossdomain/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/http/HTTP_Put_Method_Exploit_8080.txt
 root@kali:/# nmap -p 80 192.168.80.111  --script http-put --script-args http-put.url='/.svn/entries/uploadtest.txt',http-put.file='./uploadtest.txt' --host-timeout 20m --script-timeout 20m >> ./teste/192_168_80_111/http/HTTP_Put_Method_Exploit_80.txt
