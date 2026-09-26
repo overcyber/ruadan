@@ -1,0 +1,22 @@
+# ==============================================================================
+# .dockerignore — NÃO enviar para o daemon de build:
+# ==============================================================================
+# Outputs de runs (528MB+), backups históricos (~2.5GB), repositório git e
+# utilitários: além de travar/congelar o build (context gigante), outputs
+# eram COPIADOS PARA DENTRO DA IMAGEM pelo COPY . /ruadan/ (4.12GB!).
+# A imagem deve conter o ARSENAL, nunca dados de execução.
+# ==============================================================================
+output
+output2
+output_backup_*
+targets*
+hosts*
+.git
+build
+uteis
+__pycache__
+*.pyc
+*.log
+*.txt.bak
+Dockerfile.dockerignore
+_archive
