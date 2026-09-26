@@ -80,6 +80,8 @@ import os
 import sys
 import time
 import re
+import socket
+import urllib.parse
 import configparser as ConfigParser
 import argparse
 import random
@@ -306,7 +308,7 @@ class Ruadan:
                                  help='configuration ini file (default: %(default)s)')
         self.parser.add_argument("-attackPlanFile", metavar='file', type=str, default="attackplan.ini",
                                  help='attack plan ini file (default: %(default)s)')
-        self.parser.add_argument("-hostFile", metavar='file', type=argparse.FileType("r"), default="hosts.txt",
+        self.parser.add_argument("-hostFile", metavar='file', type=str, default="targets/hosts.txt",
                                  help='list of hosts to attack (default: %(default)s)')
         self.parser.add_argument("-workspace", metavar='workspace', type=str, default="",
                                  help='Metasploit workspace to import data into (default: is the host filename)')
@@ -332,8 +334,72 @@ class Ruadan:
         self.parser.add_argument("-logging", action='store_true', help='enable verbose and debug data logging to files')
         self.parser.add_argument("-verbose", action='store_true', help='display verbose details during the scan')
         self.parser.add_argument("-debug", action='store_true', help='display debug details during the scan')
+        self.parser.add_argument("-ai", action='store_true', help='enable autonomous AI orchestration (RL + Multi-LLM)')
+        self.parser.add_argument("-llmProvider", type=str, default="ollama",
+                                 choices=['ollama', 'google', 'openai', 'anthropic', 'deepseek', 'nvidia'],
+                                 help='LLM provider for AI orchestration (default: %(default)s)')
+        self.parser.add_argument("-llmModel", type=str, default=None,
+                                 help='specific model name for LLM provider (default: provider default)')
+        self.parser.add_argument("-checkpoint", type=str, default="/app/checkpoints/maestro_red_ep1246800.pt",
+                                 help='path to RL policy checkpoint (.pt)')
+        self.parser.add_argument("-aiSteps", type=int, default=40,
+                                 help='maximum steps for autonomous AI orchestration (default: %(default)s)')
 
         self.args = self.parser.parse_args(argv)
+
+        # Smart hostFile path resolution across Docker and local layouts
+        hf_raw = self.args.hostFile
+        if isinstance(hf_raw, str):
+            this_dir = os.path.dirname(os.path.abspath(__file__))
+            # Candidatos DERIVADOS do caminho que o usuário pediu (específicos)
+            derived_candidates = [
+                hf_raw,
+                os.path.join(os.getcwd(), hf_raw),
+                os.path.join(this_dir, hf_raw),
+                os.path.join("/ruadan", hf_raw),
+                os.path.join("/app", hf_raw),
+                os.path.join("/app/ruadan", hf_raw),
+                os.path.join(this_dir, "targets", os.path.basename(hf_raw)),
+                os.path.join("/ruadan/targets", os.path.basename(hf_raw)),
+                os.path.join("/targets", os.path.basename(hf_raw)),
+                os.path.join("/root_targets", os.path.basename(hf_raw)),
+                os.path.join(os.getcwd(), "targets", os.path.basename(hf_raw)),
+            ]
+            # Fallbacks GENÉRICOS (hosts.txt) — só são aceitos quando o usuário
+            # NÃO especificou um hostFile próprio (comando inválido com alvo
+            # inexistente JAMAIS deve cair em alvos genéricos silenciosamente!)
+            generic_candidates = [
+                "/ruadan/targets/hosts.txt",
+                "/app/ruadan/targets/hosts.txt",
+                "/targets/hosts.txt",
+                "targets/hosts.txt",
+                "hosts.txt"
+            ]
+            _hostfile_default = "targets/hosts.txt"
+            _explicit = (hf_raw != _hostfile_default)
+            resolved = None
+            for c in derived_candidates:
+                if os.path.isfile(c):
+                    resolved = c
+                    break
+            if resolved is None and not _explicit:
+                # sem -hostFile no comando: fallback ao hosts.txt default é legítimo
+                for c in generic_candidates:
+                    if os.path.isfile(c):
+                        resolved = c
+                        break
+            if resolved is None:
+                if _explicit:
+                    print(Color.red() + "[-] ERRO FATAL: o hostFile '%s' (especificado no comando) NÃO existe em nenhum "
+                          "caminho conhecido. Abortando — refusing alvos genéricos." % hf_raw + Color.reset())
+                    print(Color.red() + "    Dica: verifique o caminho/arquivo (targets/ do repo: ruadan/targets/)." + Color.reset())
+                else:
+                    print(Color.red() + "[-] ERRO FATAL: nenhum hostFile encontrado (nem hosts.txt default). Abortando." + Color.reset())
+                sys.exit(2)
+            if resolved != hf_raw and os.path.abspath(resolved) != os.path.abspath(hf_raw):
+                print(Color.yellow() + "[!] AVISO: hostFile '%s' não encontrado. Usando fallback: '%s'" % (hf_raw, resolved) + Color.reset())
+            self.args.hostFile = resolved
+
         self.hosts = self.args.hostFile
 
         # Installation Setup
@@ -348,9 +414,12 @@ class Ruadan:
         Logger.VERBOSE = (self.config.getboolean("System", "Verbose") if self.config.has_option("System", "Verbose") else False) or self.args.verbose
         Logger.DEBUG = (self.config.getboolean("System", "Debug") if self.config.has_option("System", "Debug") else False) or self.args.debug
 
+        # Hostfile basename string for folders and naming
+        hf_basename = os.path.basename(self.args.hostFile.name if hasattr(self.args.hostFile, 'name') else str(self.args.hostFile)).split(".")[0]
+
         # Default output location
         if self.args.outputFolder == "":
-            self.args.outputFolder = "." + os.path.sep + str(self.args.hostFile.name).split(".")[0]
+            self.args.outputFolder = "." + os.path.sep + hf_basename
 
         # Nmap scan output folder
         self.nmap_path = os.path.join(self.args.outputFolder, __nmap_folder__)
@@ -369,7 +438,7 @@ class Ruadan:
 
         # Metasploit workspace name - the workspace name is the name of the host file minus its extension
         if self.args.workspace == "":
-            self.workspace = str(self.args.hostFile.name).split(".")[0]
+            self.workspace = hf_basename
         else:
             self.workspace = self.args.workspace
 
@@ -387,6 +456,9 @@ class Ruadan:
 
         # Master NMAP Data Structure Dict
         self.nmap_dict = {}
+        self.host_to_ip = {}
+        self.ip_to_host = {}
+        self.target_urls = {}
 
         # current enumeration phase command que
         self.phase_commands = []
@@ -405,21 +477,32 @@ class Ruadan:
         # Lists discovered during enumeration
         self.findings = {'users': [], 'urls': [], 'groups': [], 'passwords': [], 'vulnerabilities': []}
 
-        # write errors to error log rather than display them on screen
-        self.command_error_log = open("commanderrorlog.txt", 'w', encoding='utf-8', errors='ignore')
-        self.active_commands = "activecommands.txt"
+        # write errors to error log inside outputFolder rather than polluting cwd
+        err_log_path = os.path.join(self.args.outputFolder, "commanderrorlog.txt")
+        try:
+            self.command_error_log = open(err_log_path, 'w', encoding='utf-8', errors='ignore')
+        except OSError:
+            self.command_error_log = open(os.devnull, 'w')
+
+        self.active_commands = os.path.join(self.args.outputFolder, "activecommands.txt")
         self.debug_log = None
         self.verbose_log = None
         if self.args.logging:
-            self.debug_log = open("debuglog.txt", 'w', encoding='utf-8', errors='ignore')
-            self.verbose_log = open("verboselog.txt", 'w', encoding='utf-8', errors='ignore')
-            Logger.DEBUG_FILE = self.debug_log
-            Logger.VERBOSE_FILE = self.verbose_log
+            try:
+                self.debug_log = open(os.path.join(self.args.outputFolder, "debuglog.txt"), 'w', encoding='utf-8', errors='ignore')
+                self.verbose_log = open(os.path.join(self.args.outputFolder, "verboselog.txt"), 'w', encoding='utf-8', errors='ignore')
+                Logger.DEBUG_FILE = self.debug_log
+                Logger.VERBOSE_FILE = self.verbose_log
+            except OSError:
+                pass
 
         self.benchmarking_csv = None
         if self.args.benchmarking:
-            self.benchmarking_csv = open("benchmark.csv", 'w', encoding='utf-8', errors='ignore')
-            self.benchmarking_csv.write("TIME,COMMAND\n")
+            try:
+                self.benchmarking_csv = open(os.path.join(self.args.outputFolder, "benchmark.csv"), 'w', encoding='utf-8', errors='ignore')
+                self.benchmarking_csv.write("TIME,COMMAND\n")
+            except OSError:
+                pass
         self.devnull = subprocess.DEVNULL
 
     def close(self):
@@ -469,34 +552,70 @@ class Ruadan:
                             continue
                         if self.nmap_dict.get(addr, None) is None:
                             self.nmap_dict[addr] = {}
+
+                        # Extract hostname from <hostnames> element
+                        hostnames_elem = i.find('hostnames')
+                        if hostnames_elem is not None:
+                            for hn in hostnames_elem.iter('hostname'):
+                                h_name = hn.get('name', '').strip()
+                                if h_name and not self.nmap_dict[addr].get('hostname'):
+                                    self.nmap_dict[addr]['hostname'] = h_name
+                                    break
                         port_dict = []
                         for port in find_ports.iter('port'):
                             element_dict = {}
-                            attribute_dict = {}
                             self.xml_to_dict(port_attribs_to_read, port, element_dict)
-                            for xml_element in xml_nmap_elements:
-                                for attribute in port.iter(xml_element):
-                                    if attribute is not None:
-                                        self.xml_to_dict(xml_nmap_elements[xml_element], attribute, attribute_dict)
-                                        element_dict = self.merge_two_dicts(element_dict, attribute_dict)
-                                        if attribute.get('hostname', '') != '':
-                                            self.nmap_dict[addr]['hostname'] = attribute.get('hostname', '')
-                                        if attribute.get('tunnel', '') == 'ssl' and attribute.get('name', '') == 'http':
-                                            element_dict['name'] = 'https'
-                                        # If we have encountered an unknown service set the name to unknown so we can still enum
-                                        if attribute.get('name', None) is None:
-                                            for attrib_name in service_attribs_to_read:
-                                                element_dict[attrib_name] = ''
-                                            element_dict['name'] = 'unknown'
-                            # Check to see if this port already exists
+                            for attr in state_attribs_to_read:
+                                element_dict[attr] = ''
+                            for attr in service_attribs_to_read:
+                                element_dict[attr] = ''
+                            element_dict['name'] = 'unknown'
+
+                            # 1. Parse <state> element
+                            state_elem = port.find('state')
+                            if state_elem is not None:
+                                for attr in state_attribs_to_read:
+                                    element_dict[attr] = state_elem.get(attr, '')
+
+                            # 2. Parse <service> element
+                            service_elem = port.find('service')
+                            if service_elem is not None:
+                                for attr in service_attribs_to_read:
+                                    val = service_elem.get(attr, '')
+                                    if attr == 'name' and self.config.has_option('Service Labels', val):
+                                        element_dict[attr] = self.config.get('Service Labels', val)
+                                    else:
+                                        element_dict[attr] = val
+
+                                if service_elem.get('hostname', '') != '':
+                                    self.nmap_dict[addr]['hostname'] = service_elem.get('hostname', '')
+                                if service_elem.get('tunnel', '') == 'ssl' and element_dict.get('name', '') == 'http':
+                                    element_dict['name'] = 'https'
+
+                            # Ensure non-empty service name and resolve from Service Ports if unknown
+                            if not element_dict.get('name') or element_dict.get('name') == 'unknown':
+                                element_dict['name'] = 'unknown'
+                                if self.config.has_section('Service Ports'):
+                                    for s_name, s_ports in self.config.items('Service Ports'):
+                                        if str(element_dict.get('portid')) in [p.strip() for p in s_ports.split(',')]:
+                                            element_dict['name'] = s_name
+                                            break
+
+                            # 3. Merge with existing port if already recorded
                             port_was_merged = False
                             if self.nmap_dict[addr].get('ports', None) is not None:
                                 for pos, port_item in enumerate(self.nmap_dict[addr]['ports']):
-                                    if port_item.get('portid') == element_dict.get('portid'):
+                                    if str(port_item.get('portid')) == str(element_dict.get('portid')):
                                         port_was_merged = True
                                         for element in service_attribs_to_read:
-                                            if len(element_dict.get(element, '')) > 0:
+                                            if element_dict.get(element, '') != '':
                                                 self.nmap_dict[addr]['ports'][pos][element] = element_dict[element]
+                                        for element in state_attribs_to_read:
+                                            if element_dict.get(element, '') != '':
+                                                self.nmap_dict[addr]['ports'][pos][element] = element_dict[element]
+                                        if self.nmap_dict[addr]['ports'][pos].get('name') == 'unknown' and element_dict.get('name') != 'unknown':
+                                            self.nmap_dict[addr]['ports'][pos]['name'] = element_dict['name']
+                                        break
                             if port_was_merged is False:
                                 port_dict.append(element_dict)
                         if self.nmap_dict[addr].get('ports', None) is None:
@@ -504,6 +623,176 @@ class Ruadan:
                         else:
                             self.nmap_dict[addr]['ports'] = self.nmap_dict[addr]['ports'] + port_dict
             Logger.debug("NMAP XML PARSE: - Finished NMAP Dict Creation:\n " + str(self.nmap_dict))
+            # Sincronização bidirecional entre chaves de IP e Hostname no nmap_dict
+            self.sync_nmap_dict_hosts()
+            Logger.debug("NMAP XML PARSE: - Synced NMAP Dict:\n " + str(self.nmap_dict))
+
+    def sync_nmap_dict_hosts(self):
+        """
+        Sincroniza portas e metadados bidirecionalmente entre chaves de IP e Hostname no nmap_dict.
+        Garante que ferramentas web vejam portas sob o hostname e ferramentas de rede vejam sob o IP.
+        """
+        keys = list(self.nmap_dict.keys())
+        for k in keys:
+            entry = self.nmap_dict[k]
+            k_is_ip = bool(re.match(r'^\d{1,3}(\.\d{1,3}){3}$', k))
+
+            hn = entry.get('hostname') or (getattr(self, 'ip_to_host', {}).get(k) if k_is_ip else k)
+            ip = entry.get('ip') or (k if k_is_ip else (getattr(self, 'host_to_ip', {}).get(k) or self.resolve_target_ip(k)))
+
+            if k_is_ip and not hn:
+                hn = self.resolve_ip_hostname(k)
+                if hn:
+                    if hasattr(self, 'ip_to_host'):
+                        self.ip_to_host[k] = hn
+                    if hasattr(self, 'host_to_ip'):
+                        self.host_to_ip[hn] = k
+
+            if hn:
+                entry['hostname'] = hn
+            if ip and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+                entry['ip'] = ip
+
+            other_keys = []
+            if hn and hn != k:
+                other_keys.append(hn)
+            if ip and ip != k and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+                other_keys.append(ip)
+
+            for ok in other_keys:
+                if ok not in self.nmap_dict:
+                    self.nmap_dict[ok] = {'ports': []}
+                if hn:
+                    self.nmap_dict[ok]['hostname'] = hn
+                if ip and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+                    self.nmap_dict[ok]['ip'] = ip
+
+                target_ports = self.nmap_dict[ok].setdefault('ports', [])
+                source_ports = entry.get('ports', [])
+                for sp in source_ports:
+                    sp_portid = str(sp.get('portid', ''))
+                    sp_proto = sp.get('protocol', 'tcp')
+                    exists = False
+                    for idx, tp in enumerate(target_ports):
+                        if str(tp.get('portid', '')) == sp_portid and tp.get('protocol', 'tcp') == sp_proto:
+                            exists = True
+                            for attr in ('name', 'product', 'version', 'extrainfo', 'tunnel', 'state'):
+                                if sp.get(attr) and not tp.get(attr):
+                                    target_ports[idx][attr] = sp[attr]
+                            break
+                    if not exists:
+                        target_ports.append(dict(sp))
+
+    @staticmethod
+    def sanitize_target(raw_target: str):
+        """
+        Sanitiza uma string de alvo que pode vir como:
+        - URL: 'https://juice.octopux/' -> ('juice.octopux', 'https', 443)
+        - URL com porta: 'http://juice.octopux:8080/path' -> ('juice.octopux', 'http', 8080)
+        - Host com porta: 'juice.octopux:8080' -> ('juice.octopux', None, 8080)
+        - Host puro ou IP: 'juice.octopux' -> ('juice.octopux', None, None)
+        - IP puro: '192.168.50.160' -> ('192.168.50.160', None, None)
+        """
+        target = str(raw_target).strip()
+        if not target:
+            return "", None, None
+
+        scheme = None
+        port = None
+
+        if "://" in target:
+            try:
+                parsed = urllib.parse.urlparse(target)
+                scheme = parsed.scheme.lower() if parsed.scheme else None
+                host = parsed.hostname or target
+                port = parsed.port
+                if port is None and scheme in ("http", "https"):
+                    port = 443 if scheme == "https" else 80
+                return host, scheme, port
+            except Exception:
+                pass
+
+        # Sem esquema HTTP/HTTPS: remove caminhos ou barras finais
+        clean = target.split('/')[0].strip()
+        # Trata porta se vier no formato host:porta (e não IPv6 puro)
+        if ":" in clean and not clean.startswith("["):
+            parts = clean.split(":")
+            if len(parts) == 2 and parts[1].isdigit():
+                clean = parts[0]
+                port = int(parts[1])
+
+        return clean, scheme, port
+
+    @staticmethod
+    def resolve_target_ip(host_or_ip: str) -> str:
+        """
+        Resolve um hostname para IP usando socket.gethostbyname com fallback para /etc/hosts.
+        Se já for um IP válido, retorna o próprio IP.
+        """
+        if not host_or_ip:
+            return host_or_ip
+        if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host_or_ip):
+            return host_or_ip
+
+        # 1. Tenta resolução via DNS / sistema operacional
+        try:
+            ip = socket.gethostbyname(host_or_ip)
+            if ip and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+                return ip
+        except Exception:
+            pass
+
+        # 2. Fallback direto para o /etc/hosts
+        try:
+            if os.path.exists('/etc/hosts'):
+                with open('/etc/hosts', 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.split('#')[0].strip()
+                        if not line:
+                            continue
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            ip_cand = parts[0]
+                            names = parts[1:]
+                            if host_or_ip.lower() in [n.lower() for n in names]:
+                                if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip_cand):
+                                    return ip_cand
+        except Exception:
+            pass
+
+        return host_or_ip
+
+    @staticmethod
+    def resolve_ip_hostname(ip: str):
+        """
+        Tenta encontrar um hostname virtual correspondente a um IP consultando o /etc/hosts ou DNS reverso.
+        """
+        if not ip or not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+            return None
+        # 1. Consulta /etc/hosts primeiro (preserva o mapeamento exato do lab, ex: 192.168.50.160 -> juice.octopux)
+        try:
+            if os.path.exists('/etc/hosts'):
+                with open('/etc/hosts', 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.split('#')[0].strip()
+                        if not line:
+                            continue
+                        parts = line.split()
+                        if len(parts) >= 2 and parts[0] == ip:
+                            for n in parts[1:]:
+                                if n.lower() not in ('localhost', 'broadcasthost', 'ip6-localhost', 'ip6-loopback'):
+                                    return n
+        except Exception:
+            pass
+
+        # 2. DNS Reverso
+        try:
+            name, _, _ = socket.gethostbyaddr(ip)
+            if name and name != ip:
+                return name
+        except Exception:
+            pass
+        return None
 
     @staticmethod
     def merge_two_dicts(x, y):
@@ -519,43 +808,54 @@ class Ruadan:
         Logger.debug("exploit_search()")
         for host in self.nmap_dict:
             for service in self.nmap_dict[host].get('ports', []):
-                if service.get('product', '') != '' and service.get('version', '') != '':
-                    version_digits = ' '.join(str(x) for x in re.findall(r'\d+', service.get('version', '')))
-                    command_keys = {
-                        'output': self.get_enumeration_path(host, service['name'], service['portid'], command_label),
-                        'target': service.get('product', '')}
-                    base, filename = os.path.split(command_keys['output'])  # Resume file already exists
-                    if not self.args.noResume and len(self.find_files(base, filename + ".*")) > 0:
-                        Logger.debug("exploit_search() -Exploit Search file already exists: "
-                                     + command_keys['output'])
-                    else:
-                        if not self.config.has_section(command_label):
-                            Logger.debug("exploit_search() - Section not found in config: " + command_label)
+                product = service.get('product', '').strip()
+                version = service.get('version', '').strip()
+                service_name = service.get('name', '').strip()
+                
+                target_query = ""
+                if product:
+                    target_query = f"{product} {version}".strip() if version else product
+                elif service_name and service_name not in ('unknown', 'always'):
+                    target_query = service_name
+
+                if not target_query:
+                    continue
+
+                command_keys = {
+                    'output': self.get_enumeration_path(host, service.get('name', 'unknown'), service.get('portid', '0'), command_label),
+                    'target': f'"{target_query}"' if ' ' in target_query else target_query}
+                base, filename = os.path.split(command_keys['output'])  # Resume file already exists
+                if not self.args.noResume and len(self.find_files(base, filename + ".*")) > 0:
+                    Logger.debug("exploit_search() -Exploit Search file already exists: "
+                                 + command_keys['output'])
+                else:
+                    if not self.config.has_section(command_label):
+                        Logger.debug("exploit_search() - Section not found in config: " + command_label)
+                        continue
+                    self.execute_command(self.prepare_command(command_label, command_keys))
+                    json_file = command_keys['output'] + ".json"
+                    if not os.path.exists(json_file):
+                        continue
+                    with open(json_file, 'r', encoding='utf-8', errors='ignore') as data_file:
+                        try:
+                            data = json.load(data_file)
+                        except Exception:
                             continue
-                        self.execute_command(self.prepare_command(command_label, command_keys))
-                        json_file = command_keys['output'] + ".json"
-                        if not os.path.exists(json_file):
-                            continue
-                        with open(json_file, 'r', encoding='utf-8', errors='ignore') as data_file:
+                        results = data.get('RESULTS') or data.get('RESULTS_EXPLOIT') or []
+                        if len(results) == 0:
                             try:
-                                data = json.load(data_file)
-                            except Exception:
-                                continue
-                            results = data.get('RESULTS') or data.get('RESULTS_EXPLOIT') or []
-                            if len(results) == 0:
-                                try:
-                                    os.remove(json_file)
-                                except OSError:
-                                    pass
-                            else:  # copy exploits to exploit folder
-                                exploits_path = os.path.join(base, "exploits")
-                                if not os.path.exists(exploits_path):
-                                    os.makedirs(exploits_path)
-                                for exploit in results:
-                                    exploit_path = exploit.get('Path') or exploit.get('path')
-                                    if exploit_path and os.path.exists(exploit_path):
-                                        exploit_base, exploit_filename = os.path.split(exploit_path)
-                                        copyfile(exploit_path, os.path.join(exploits_path, exploit_filename))
+                                os.remove(json_file)
+                            except OSError:
+                                pass
+                        else:  # copy exploits to exploit folder
+                            exploits_path = os.path.join(base, "exploits")
+                            if not os.path.exists(exploits_path):
+                                os.makedirs(exploits_path)
+                            for exploit in results:
+                                exploit_path = exploit.get('Path') or exploit.get('path')
+                                if exploit_path and os.path.exists(exploit_path):
+                                    exploit_base, exploit_filename = os.path.split(exploit_path)
+                                    copyfile(exploit_path, os.path.join(exploits_path, exploit_filename))
 
     # Enumerate a phase
     # phases are defined in attackplan.ini
@@ -569,7 +869,21 @@ class Ruadan:
         if not self.plan.has_section(phase_name):
             Logger.debug("enumerate() - Section not found in attack plan: " + phase_name)
             return
-        for host in self.nmap_dict:
+        # Deduplicação de alvos espelhados: o sync_nmap_dict_hosts() espelha as
+        # portas nas DUAS keys (hostname<->IP) do mesmo host físico. Sem este
+        # filtro, cada fase executava 2x (uma por key) — dobrando o tempo do run
+        # e criando pastas de output duplicadas. Processa apenas a PRIMEIRA key
+        # de cada IP efetivo (a canônica vem primeiro: prioridade hostname/SNI).
+        _seen_effective = set()
+        for host in list(self.nmap_dict.keys()):
+            _entry = self.nmap_dict[host] or {}
+            _eff = str(_entry.get('ip') or host)
+            if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', _eff):
+                _eff = str(getattr(self, 'host_to_ip', {}).get(host) or host)
+            if _eff in _seen_effective:
+                Logger.debug("enumerate() - contraparte espelhada pulada (mesmo IP que " + _eff + "): " + host)
+                continue
+            _seen_effective.add(_eff)
             Logger.debug("enumerate() - Host: " + host)
             host_ports = [str(d['portid']) for d in self.nmap_dict[host].get('ports', []) if 'portid' in d]
             if self.plan.has_option(phase_name, 'always'):
@@ -586,7 +900,8 @@ class Ruadan:
                     service_name = service.get('name', '')
                     service_state = service.get('state', '')
                     service_port = str(service.get('portid', ''))
-                    if not ('closed' in service_state or 'filtered' in service_state) \
+                    is_closed = ('closed' in service_state) and ('open' not in service_state)
+                    if not is_closed \
                             and (service_name.find(known_service) != -1 or service_port in ports.split(',')):
                         if self.plan.has_option(phase_name, known_service):
                             for command_label in self.plan.get(phase_name, known_service).split(','):
@@ -595,12 +910,21 @@ class Ruadan:
                                     if not self.config.has_section(command_label):
                                         Logger.debug("\tenumerate() - command section not found: " + command_label)
                                         continue
+                                    # Para serviços web (HTTP/HTTPS), se tivermos o hostname virtual mapeado,
+                                    # utiliza preferencialmente o hostname para suportar VirtualHosts / SNI
+                                    cmd_target = host
+                                    is_web_svc = (service_name in ('http', 'https') or str(service_port) in ('80', '443', '8080', '8443', '3000'))
+                                    if is_web_svc and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host):
+                                        target_hn = self.nmap_dict[host].get('hostname') or getattr(self, 'ip_to_host', {}).get(host)
+                                        if target_hn:
+                                            cmd_target = target_hn
+
                                     command_keys = {
                                         'output': self.get_enumeration_path(host, service_name, service_port,
                                                                             command_label),
                                         'output folder': self.args.outputFolder,
                                         'output nmap': os.path.join(self.nmap_path, command_label.replace(" ", "_") + "_" + host.replace(".", "_")),
-                                        'target': host,
+                                        'target': cmd_target,
                                         'domain': self.args.domain,
                                         'service': service_name,
                                         'port': service_port,
@@ -662,6 +986,16 @@ class Ruadan:
                                         if not do_not_append and "<" + __findings_label_dynamic__ not in command:
                                             self.phase_commands.append(command)
                                             Logger.debug("enumerate() - added command : " + command_label)
+                                            
+                                            # If target has a resolved hostname, also schedule scan against the hostname
+                                            host_hostname = self.nmap_dict[host].get('hostname') or getattr(self, 'ip_to_host', {}).get(host)
+                                            if host_hostname and host_hostname != host and host_hostname != cmd_target:
+                                                cmd_keys_hn = command_keys.copy()
+                                                cmd_keys_hn['target'] = host_hostname
+                                                cmd_keys_hn['output'] = self.get_enumeration_path(host_hostname, service_name, service_port, command_label)
+                                                cmd_hn = self.prepare_command(command_label, cmd_keys_hn)
+                                                self.phase_commands.append(cmd_hn)
+                                                Logger.debug("enumerate() - added hostname command : " + command_label + " for " + host_hostname)
                                         else:
                                             Logger.debug("enumerate() - skipped command : " + command_label)
                         else:
@@ -684,6 +1018,8 @@ class Ruadan:
         Logger.verbose("root@kali:/# " + command)
         Logger.debug("execute_command() - Starting: - " + command)
         command_start_time = time.time()
+        tool_cmd = command.strip().split()[0] if command.strip() else "tool"
+        print(Color.cyan() + " [*] " + Color.reset() + f"Executando ferramenta: {Color.yellow()}{tool_cmd}{Color.reset()} -> {command[:90]}...")
         with open(self.active_commands, 'w', encoding='utf-8', errors='ignore') as active_command_report_file:
             active_command_report_file.write("Last Update: " + str(datetime.now()) + "\n")
             active_command_report_file.write(pformat(self.thread_pool_commands, indent=4, width=1))
@@ -691,13 +1027,26 @@ class Ruadan:
         process = Popen(command, shell=True, stdin=PIPE, stderr=self.command_error_log, stdout=self.devnull)
         if process.stdin:
             process.stdin.close()
-        # Process wait is causing the application to hang in some fringe cases
-        if process.wait() != 0:
+        ret_code = process.wait()
+        elapsed_sec = time.time() - command_start_time
+        if ret_code != 0:
             Logger.debug("execute_command() - ERRORS EXECUTING:  - " + command)
             self.thread_pool_errors.append(command)
+            print(Color.yellow() + f" [!] Ferramenta {tool_cmd} finalizada (código: {ret_code}, tempo: {elapsed_sec:.1f}s)" + Color.reset())
+        else:
+            print(Color.green() + f" [+] Ferramenta {tool_cmd} concluída com sucesso ({elapsed_sec:.1f}s)" + Color.reset())
         Logger.debug("execute_command() - COMPLETED! - " + command)
         if command in self.thread_pool_commands:
             self.thread_pool_commands.remove(command)
+
+        # Audit log for every executed command
+        try:
+            cmd_log_file = os.path.join(self.args.outputFolder, "command_execution_history.log")
+            with open(cmd_log_file, "a", encoding="utf-8") as f_hist:
+                status_str = "SUCCESS" if ret_code == 0 else f"EXIT_{ret_code}"
+                f_hist.write(f"[{datetime.now().isoformat()}] [{status_str}] [{elapsed_sec:.2f}s] {command}\n")
+        except Exception:
+            pass
         if self.args.benchmarking:
             with open(self.active_commands, 'w', encoding='utf-8', errors='ignore') as active_command_report_file:
                 active_command_report_file.write("Last Update: " + str(datetime.now()) + "\n")
@@ -894,22 +1243,22 @@ class Ruadan:
     @staticmethod
     def banner_doom():
         print(Color.yellow() + '\n ' +
-              '__      __     _   _  ____  _    _ _____  _____ _    _ \n' +
-              ' \\ \\    / /\\   | \\ | |/ __ \\| |  | |_   _|/ ____| |  | |\n' +
-              '  \\ \\  / /  \\  |  \\| | |  | | |  | | | | | (___ | |__| |\n' +
-              '   \\ \\/ / /\\ \\ | . ` | |  | | |  | | | |  \\___ \\|  __  |\n' +
-              '    \\  / ____ \\| |\\  | |__| | |__| |_| |_ ____) | |  | |\n' +
-              '     \\/_/    \\_\\_| \\_|\\___\\_\\\\____/|_____|_____/|_|  |_|\n' +
-              'Set your Mertilizers on "deep fat fry".' + Color.reset())
+              ' _____  _    _         _____          _   _ \n' +
+              '|  __ \\| |  | |  /\\   |  __ \\   /\\   | \\ | |\n' +
+              '| |__) | |  | | /  \\  | |  | | /  \\  |  \\| |\n' +
+              '|  _  /| |  | |/ /\\ \\ | |  | |/ /\\ \\ | . ` |\n' +
+              '| | \\ \\| |__| / ____ \\| |__| / ____ \\| |\\  |\n' +
+              '|_|  \\_\\\\____/_/    \\_\\_____/_/    \\_\\_| \\_|\n' +
+              'Root to boot enumeration platform.' + Color.reset())
 
     @staticmethod
     def banner_block():
         print(Color.magenta() + '\n' +
-              ' __   ___   _  _  ___  _   _ ___ ___ _  _ \n' +
-              ' \\ \\ / /_\\ | \\| |/ _ \\| | | |_ _/ __| || |\n' +
-              '  \\ V / _ \\| .` | (_) | |_| || |\\__ \\ __ |\n' +
-              '   \\_/_/ \\_\\_|\\_|\\___\\_\\\\___/|___|___/_||_|\n' +
-              'Faster than a one-legged man in a butt kicking contest.' + Color.reset())
+              ' ___ _   _  _   ___   _   _  _ \n' +
+              '| _ \\ | | |/_\\ |   \\ /_\\ | \\| |\n' +
+              '|   / |_| / _ \\| |) / _ \\| .` |\n' +
+              '|_|_\\\\___/_/ \\_\\___/_/ \\_\\_|\\_|\n' +
+              'Systematic enumeration and exploitation.' + Color.reset())
 
     ##################################################################################
     # Entry point for command-line execution
@@ -935,9 +1284,115 @@ class Ruadan:
         else:
             raw_hosts = list(self.hosts)
         self.hosts = [h.strip() for h in raw_hosts if h.strip() and not h.strip().startswith('#')]
+
+        # ============================================================================
+        # Normalização e Sanitização de alvos:
+        # Suporta URLs completas (ex: https://juice.octopux/ ou http://alvo:8080/),
+        # hostnames virtuais (ex: juice.octopux) e IPs puros (ex: 192.168.50.160).
+        # Resolve IPs via DNS e /etc/hosts, vinculando bidirecionalmente host <-> IP.
+        # PRESERVA o hostname virtual para ferramentas web (Nikto, Gobuster, cURL, etc.)
+        # e unifica alvos duplicados que apontam para o mesmo IP físico.
+        # ============================================================================
+        self.host_to_ip = {}
+        self.ip_to_host = {}
+        self.target_urls = {}
+
+        _canonical_targets = []
+        _ip_seen = {}  # ip -> canonical_name escolhido
+
+        for raw_entry in self.hosts:
+            clean_host, scheme, port = self.sanitize_target(raw_entry)
+            if not clean_host:
+                continue
+
+            resolved_ip = self.resolve_target_ip(clean_host)
+            is_ip = bool(re.match(r'^\d{1,3}(\.\d{1,3}){3}$', clean_host))
+
+            if not is_ip and resolved_ip and resolved_ip != clean_host:
+                self.host_to_ip[clean_host] = resolved_ip
+                if resolved_ip not in self.ip_to_host:
+                    self.ip_to_host[resolved_ip] = clean_host
+            elif is_ip:
+                hn = self.resolve_ip_hostname(clean_host)
+                if hn:
+                    self.ip_to_host[clean_host] = hn
+                    if hn not in self.host_to_ip:
+                        self.host_to_ip[hn] = clean_host
+
+            if scheme:
+                self.target_urls[clean_host] = raw_entry
+
+            # Deduplicação inteligente de alvos que compartilham o mesmo IP:
+            # Hostname virtual tem prioridade sobre IP cru (carrega SNI/VHost).
+            effective_ip = resolved_ip if (resolved_ip and re.match(r'^\d{1,3}(\.\d{1,3}){3}$', resolved_ip)) else clean_host
+
+            if effective_ip not in _ip_seen:
+                _ip_seen[effective_ip] = clean_host
+                _canonical_targets.append(clean_host)
+            else:
+                prev_choice = _ip_seen[effective_ip]
+                # Se a escolha anterior foi um IP cru e agora recebemos um hostname virtual para o mesmo IP, atualiza
+                if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', prev_choice) and not is_ip:
+                    _canonical_targets[_canonical_targets.index(prev_choice)] = clean_host
+                    _ip_seen[effective_ip] = clean_host
+                    print(Color.cyan() + f"[i] Alvo '{prev_choice}' atualizado para o hostname virtual '{clean_host}' ({effective_ip})." + Color.reset())
+
+        for h, ip in self.host_to_ip.items():
+            print(Color.cyan() + f"[i] Alvo '{h}' vinculado ao IP real {ip} (via /etc/hosts/DNS)." + Color.reset())
+
+        self.hosts = _canonical_targets
         Logger.verbose("Hosts:" + str(self.hosts))
         for host in self.hosts:
             self.nmap_dict[host] = {"ports": []}
+            if host in self.host_to_ip:
+                self.nmap_dict[host]["ip"] = self.host_to_ip[host]
+                self.nmap_dict[host]["hostname"] = host
+            elif host in self.ip_to_host:
+                self.nmap_dict[host]["hostname"] = self.ip_to_host[host]
+                self.nmap_dict[host]["ip"] = host
+            # Garante que a contraparte também exista no nmap_dict para sincronização
+            counterpart = self.host_to_ip.get(host) or self.ip_to_host.get(host)
+            if counterpart and counterpart not in self.nmap_dict:
+                self.nmap_dict[counterpart] = {
+                    "ports": [],
+                    "ip": self.host_to_ip.get(counterpart, host if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host) else counterpart),
+                    "hostname": self.ip_to_host.get(counterpart, counterpart if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', counterpart) else host)
+                }
+
+        # Check if Autonomous AI Mode is enabled
+        if getattr(self.args, 'ai', False):
+            print(Color.cyan() + "\n==================================================================" + Color.reset())
+            print(Color.cyan() + "[+] Ruadan AI Engine ativado (red-MPPO Reinforcement Learning + Multi-LLM)" + Color.reset())
+            print(Color.cyan() + f"    - Provedor LLM:  {getattr(self.args, 'llmProvider', 'ollama')} (Modelo: {getattr(self.args, 'llmModel', 'default')})" + Color.reset())
+            print(Color.cyan() + f"    - Alvo(s):       {self.hosts}" + Color.reset())
+            print(Color.cyan() + "==================================================================\n" + Color.reset())
+            try:
+                workspace_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                if workspace_dir not in sys.path:
+                    sys.path.insert(0, workspace_dir)
+                from bridge.ai_orchestrator import RuadanAIBrain
+                brain = RuadanAIBrain(
+                    ruadan_instance=self,
+                    checkpoint_path=getattr(self.args, 'checkpoint', None),
+                    llm_provider=getattr(self.args, 'llmProvider', None),
+                    llm_model=getattr(self.args, 'llmModel', None),
+                    max_steps=getattr(self.args, 'aiSteps', 40)
+                )
+                brain.run_ai_cycle()
+            except Exception as e:
+                Logger.debug("Ruadan AI Engine error: " + str(e))
+                print(Color.red() + f"[-] Ruadan AI Engine error: {e}" + Color.reset())
+                import traceback
+                traceback.print_exc()
+            finally:
+                sorted_x = sorted(self.risk_score.items(), key=operator.itemgetter(1))
+                self.write_csv_report_file(sorted_x, "Host,Risk Score\n", self.args.outputFolder, "riskscores.csv")
+                print(Color.grey() + "[+]" + Color.reset() + " Elapsed Time: " + time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time)))
+                Logger.verbose("Goodbye!")
+                self.close()
+            return 0
+
+        print(Color.yellow() + "[*] Modo Tradicional legado (sem IA). Para ativar IA autônoma, execute via ./start.sh ou passe a flag -ai." + Color.reset())
 
         if self.plan.has_section("Nmap Scans") and self.plan.has_option("Nmap Scans", "Order"):
             for scan_phase in self.plan.get("Nmap Scans", "Order").split(","):
