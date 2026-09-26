@@ -1,0 +1,30 @@
+FROM kalilinux/kali-rolling:latest
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONPATH=/app/red-mppo:/app/ruadan:/app:/bridge:/app/bridge
+
+# 1. Arsenal do Kali e utilitários de sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-setuptools python3-wheel \
+    nmap openssh-client sshpass ncat socat hydra iputils-ping \
+    dnsutils smbclient rpcclient redis-tools snmp snmpcheck whois telnet ftp \
+    net-tools ca-certificates git curl wget jq procps \
+    nikto gobuster dirb onesixtyone sslscan sslyze whatweb wafw00f \
+    sqlmap cewl enum4linux nbtscan nfs-common cisco-torch \
+    ident-user-enum smtp-user-enum dnsrecon \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Exploit-DB (SearchSploit)
+RUN git clone --depth 1 https://gitlab.com/exploit-database/exploitdb.git /opt/exploitdb \
+    && ln -sf /opt/exploitdb/searchsploit /usr/local/bin/searchsploit \
+    && ln -sf /opt/exploitdb/searchsploit /usr/bin/searchsploit
+
+# 3. Dependências de IA e Orquestração
+RUN pip3 install --no-cache-dir --break-system-packages \
+    numpy pyyaml structlog defusedxml requests urllib3 \
+    termcolor pydantic
+
+WORKDIR /app
+CMD ["/bin/bash"]

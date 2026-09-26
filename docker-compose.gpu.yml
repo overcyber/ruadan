@@ -1,0 +1,21 @@
+# ==============================================================================
+# GPU Override — use APENAS em máquinas com GPU NVIDIA
+# ==============================================================================
+# Ativação:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Ou o ./start.sh detecta GPU automaticamente via nvidia-smi e passa --gpus all
+# ==============================================================================
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - NVIDIA_VISIBLE_DEVICES=all

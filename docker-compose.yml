@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # 1. Provedor Local de LLM (Ollama)
+  # ==============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ruadan-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    # GPU NVIDIA: para ativar, use:
+    #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+    # Ou simplesmente use ./start.sh (detecta GPU automaticamente via nvidia-smi)
+
+  # ==============================================================================
+  # 2. Servidor de Inferência RL red-MPPO (MADDPG/MPPO - PyTorch .pt)
+  # ==============================================================================
+  red-mppo:
+    build:
+      context: ./red-MPPO-testing_model
+      dockerfile: docker/pentest/Dockerfile
+    image: red-mppo:latest
+    container_name: ruadan-red-mppo
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./red-MPPO-testing_model:/repo
+      - ./red-MPPO-testing_model/data/checkpoints:/repo/data/checkpoints:ro
+      - ./data/runs:/repo/data/pentest_runs:rw
+      - ./bridge:/repo/bridge:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/repo
+    entrypoint: [
+      "python", "-m", "services.pentest.app.rl_server",
+      "--checkpoint", "/repo/data/checkpoints/maestro_red_ep1246800.pt",
+      "--port", "8008",
+      "--host", "0.0.0.0"
+    ]
+
+  # ==============================================================================
+  # 3. Kali Linux com Ruadan + Orquestrador de IA
+  # ==============================================================================
+  kali-ruadan:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.kali-ruadan
+    image: kali-ruadan:latest
+    container_name: kali-ruadan
+    network_mode: host
+    depends_on:
+      - ollama
+      - red-mppo
+    volumes:
+      - ./ruadan:/ruadan:rw
+      - ./ruadan:/app/ruadan:rw
+      - ./red-MPPO-testing_model:/app/red-mppo:ro
+      - ./configs:/app/configs:ro
+      - ./bridge:/bridge:rw
+      - ./bridge:/app/bridge:rw
+      - ./data/runs:/app/data/runs:rw
+      - ./red-MPPO-testing_model/data/checkpoints:/app/checkpoints:ro
+      - ./ruadan/output:/ruadan/output:rw
+      - ./ruadan/output:/output:rw
+      - ./ruadan/targets:/ruadan/targets:rw
+      - ./ruadan/targets:/targets:rw
+    environment:
+      # Configuração do Provedor Ativo (ollama | google | openai | anthropic | deepseek | nvidia)
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      # Endereço dos serviços internos
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://localhost:11434/v1}
+      - RED_MPPO_URL=${RED_MPPO_URL:-http://localhost:8008}
+      # Chaves de APIs externas (caso utilize modelos cloud)
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    stdin_open: true
+    tty: true
+
+volumes:
+  ollama_models:
