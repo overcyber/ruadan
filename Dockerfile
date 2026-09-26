@@ -65,6 +65,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffuf \
     feroxbuster \
     gcc \
+    build-essential \
+    libc6-dev \
     python3-msgpack \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
