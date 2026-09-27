@@ -814,6 +814,9 @@ class Ruadan:
                 
                 target_query = ""
                 if product:
+                    # FIX 2026-09-27: nunca buscar exploits para placeholders internos do Ruadan
+                    if "Ruadan Added" in product or "run once" in product.lower():
+                        continue
                     target_query = f"{product} {version}".strip() if version else product
                 elif service_name and service_name not in ('unknown', 'always'):
                     # FIX 2026-09-27: NÃO buscar por nome genérico de serviço!
