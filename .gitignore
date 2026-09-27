@@ -11,3 +11,10 @@ _archive/
 output*/
 *.log
 *.txt.bak
+garbage/
+26-09-2026-output/
+*.log
+debuglog.txt
+verboselog.txt
+activecommands.txt
+commanderrorlog.txt

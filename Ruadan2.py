@@ -816,7 +816,13 @@ class Ruadan:
                 if product:
                     target_query = f"{product} {version}".strip() if version else product
                 elif service_name and service_name not in ('unknown', 'always'):
-                    target_query = service_name
+                    # FIX 2026-09-27: NÃO buscar por nome genérico de serviço!
+                    # "snmp" retornava exploits de Solaris 1999; "nfs" de IRIX 1998.
+                    # Sem product+version, deixar o cve_validate/hunter fazer a busca
+                    # inteligente com banner real. Apenas logar que pulamos.
+                    Logger.debug(f"exploit_search() - serviço '{service_name}' sem product/version "
+                                 f"— pulando busca genérica (evita exploits irrelevantes)")
+                    continue
 
                 if not target_query:
                     continue
