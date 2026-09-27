@@ -321,6 +321,7 @@ if [[ "$1" == "--shell" || "$1" == "bash" ]]; then
         -v "${SCRIPT_DIR}/output:/ruadan/output" \
         -v "${SCRIPT_DIR}/output:/output" \
         -v "${ROOT_DIR}/bridge:/bridge" \
+    -v "${ROOT_DIR}/skills-red:/skills-red:ro" \
         -v "${ROOT_DIR}/configs:/configs" \
         -v "${ROOT_DIR}/red-MPPO-testing_model:/app/red-mppo" \
         -v "${ROOT_DIR}/red-MPPO-testing_model/data/checkpoints:/app/checkpoints" \
@@ -359,6 +360,7 @@ if [[ "$1" == "--default" || "$1" == "-default" ]]; then
         -v "${SCRIPT_DIR}/output:/output" \
         -v "${ROOT_DIR}/output:/root_output" \
         -v "${ROOT_DIR}/bridge:/bridge" \
+    -v "${ROOT_DIR}/skills-red:/skills-red:ro" \
         -v "${ROOT_DIR}/configs:/configs" \
         -v "${ROOT_DIR}/red-MPPO-testing_model:/app/red-mppo" \
         -v "${ROOT_DIR}/red-MPPO-testing_model/data/checkpoints:/app/checkpoints" \
@@ -419,6 +421,7 @@ exec docker run --rm -t \
     -v "${SCRIPT_DIR}/output:/output" \
     -v "${ROOT_DIR}/output:/root_output" \
     -v "${ROOT_DIR}/bridge:/bridge" \
+    -v "${ROOT_DIR}/skills-red:/skills-red:ro" \
     -v "${ROOT_DIR}/configs:/configs" \
     -v "${ROOT_DIR}/red-MPPO-testing_model:/app/red-mppo" \
     -v "${ROOT_DIR}/red-MPPO-testing_model/data/checkpoints:/app/checkpoints" \
