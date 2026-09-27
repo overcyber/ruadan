@@ -1,0 +1,3616 @@
+{
+  "metadata": {
+    "description": "Kali Tools Knowledge Graph for Ruadan LLM RAG",
+    "source": "kali-tools.yaml",
+    "total_tools": 529,
+    "generated": "2026-09-27"
+  },
+  "tools": [
+    {
+      "name": "metagoofil",
+      "category": "\u2022 Host Information",
+      "installed": true
+    },
+    {
+      "name": "spiderfoot",
+      "category": "\u2022 Host Information",
+      "installed": true
+    },
+    {
+      "name": "spiderfoot-cli",
+      "category": "\u2022 Host Information",
+      "installed": true
+    },
+    {
+      "name": "email2phonenumber",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "emailharvester",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "instaloader",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "linkedin2username",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "photon",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "sherlock",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "tookie-osint",
+      "category": "\u2022 Identity Information",
+      "installed": true
+    },
+    {
+      "name": "amass",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "autorecon",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "dmitry",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "legion",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "nmap",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "zenmap",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "rustscan",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "theHarvester",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "unicornscan",
+      "category": "\u2022 Network Information",
+      "installed": true
+    },
+    {
+      "name": "dnsmap",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "dnsrecon",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "dnsenum",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "massdns",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "dnstracer",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "dnswalk",
+      "category": "\u2022 Network Information: DNS",
+      "installed": true
+    },
+    {
+      "name": "assetfinder",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "arjun",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "dirb",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "dirbuster",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "dirsearch",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "feroxbuster",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "ffuf",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "finalrecon",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "findomain",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "gobuster",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "gospider",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "katana",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "lbd",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "parsero",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "recon-ng",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "subfinder",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "sublist3r",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "uniscan-gui",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "urlcrazy",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "uro",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "wfuzz",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "wpprobe",
+      "category": "\u2022 Web Scanning",
+      "installed": true
+    },
+    {
+      "name": "CAT",
+      "category": "\u2022 Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "gvm-start",
+      "category": "\u2022 Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "heartleech",
+      "category": "\u2022 Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "owasp-mantra-ff",
+      "category": "\u2022 Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "burpsuite",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "caido",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "caido-cli",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "crlfuzz",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "dalfox",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "davtest",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "joomscan",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "nikto",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "nuclei",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "paros",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "qsreplace",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "skipfish",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "sstimap",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "subjack",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "tinja",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "wapiti",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "watobo",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "wcvs",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "webscarab",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "whatweb",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "wpscan",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "zaproxy",
+      "category": "\u2022 Web Vulnerability Scanning",
+      "installed": true
+    },
+    {
+      "name": "bettercap",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "bluelog",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "bluesnarfer",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "btscanner",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "blueranger",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "fang",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "spooftooph",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "ubertooth-util",
+      "category": "\u2022 Bluetooth",
+      "installed": true
+    },
+    {
+      "name": "asleap",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "kismet",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "sparrow-wifi",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "wash",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "hackrf_info",
+      "category": "\u2022 Radio Frequency",
+      "installed": true
+    },
+    {
+      "name": "gnuradio-grc",
+      "category": "\u2022 Radio Frequency",
+      "installed": true
+    },
+    {
+      "name": "dk.gqrx.gqrx",
+      "category": "\u2022 Radio Frequency",
+      "installed": true
+    },
+    {
+      "name": "chirp",
+      "category": "\u2022 Radio Frequency",
+      "installed": true
+    },
+    {
+      "name": "rfcat",
+      "category": "\u2022 Radio Frequency",
+      "installed": true
+    },
+    {
+      "name": "maltego",
+      "category": "01 - Reconnaissance",
+      "installed": true
+    },
+    {
+      "name": "maltego-installer",
+      "category": "01 - Reconnaissance",
+      "installed": true
+    },
+    {
+      "name": "code-oss",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "donut",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "sickle-pdk",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "wixl",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "wmic",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "wmis",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "pyinstaller",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "olevba",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "olefile",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "afl-fuzz",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "bed",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "generic_chunked",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "generic_listen_tcp",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "generic_send_tcp",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "generic_send_udp",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "sfuzz",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "msf-nasm_shell",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "msfvenom",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "msfpc",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "shellnoob",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "clang",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "clang++",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "edb",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "ollydbg",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "gef",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "gdb",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "cstool",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "ghidra",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "radare2",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "rizin",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "re.rizin.cutter",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "recstudio",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "recstudio-cli",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "apktool",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "bytecode-viewer",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "jadx-gui",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "javasnoop",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "jd-gui",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "d2j-dex2jar",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "pompem",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "searchsploit",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "exploitdb-papers",
+      "category": "02 - Resource Development",
+      "installed": true
+    },
+    {
+      "name": "dns-rebind",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "gophish-start",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "phishery",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "setoolkit",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "metasploit-framework",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "sqlmap",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "sqlninja",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "sqlsus",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "jsql",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "commix",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "jboss-linux",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "jboss-win",
+      "category": "03 - Initial Access",
+      "installed": true
+    },
+    {
+      "name": "armitage",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "evilgrade",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "beef-xss-start",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "xsser",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "xsstrike",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "nishang",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "powersploit",
+      "category": "04 - Execution",
+      "installed": true
+    },
+    {
+      "name": "laudanum",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "phpggc",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "seclists",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "webacoo",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "webshells",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "weevely",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "backdoor-factory",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "cymothoa",
+      "category": "05 - Persistence",
+      "installed": true
+    },
+    {
+      "name": "lynis",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "peass",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "linpeas",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "winpeas",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "unix-privesc-check",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "bloodyad",
+      "category": "06 - Privilege Escalation",
+      "installed": true
+    },
+    {
+      "name": "crackmapexec",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "evil-winrm",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "evil-winrm-py",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "impacket-scripts",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "mimikatz",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "netexec",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "passing-the-hash",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "rubeus",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "smbmap",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "xfreerdp3",
+      "category": "\u2022 Pass-the-Hash",
+      "installed": true
+    },
+    {
+      "name": "sniffjoke",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "ftest",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "fragrouter",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "macchanger",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "outguess",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "steghide",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "org.stegosuite",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "stegsnow",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "exe2hex",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "shellter",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "veil",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "ccrypt",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "padbuster",
+      "category": "07 - Defense Evasion",
+      "installed": true
+    },
+    {
+      "name": "chntpw",
+      "category": "\u2022 OS Credential Dumping",
+      "installed": true
+    },
+    {
+      "name": "creddump7",
+      "category": "\u2022 OS Credential Dumping",
+      "installed": true
+    },
+    {
+      "name": "samdump2",
+      "category": "\u2022 OS Credential Dumping",
+      "installed": true
+    },
+    {
+      "name": "hashid",
+      "category": "\u2022 Hash Identification",
+      "installed": true
+    },
+    {
+      "name": "hash-identifier",
+      "category": "\u2022 Hash Identification",
+      "installed": true
+    },
+    {
+      "name": "bopscrk",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "cewl",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "crunch",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "maskgen",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "policygen",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "rsmangler",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "statsgen",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "twofi",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "wordlists",
+      "category": "\u2022 Password Profiling & Wordlists",
+      "installed": true
+    },
+    {
+      "name": "crowbar",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "hydra",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "hydra-gtk",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "legba",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "medusa",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "ncrack",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "patator",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "sqldict",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "thc-pptp-bruter",
+      "category": "\u2022 Brute Force",
+      "installed": true
+    },
+    {
+      "name": "cmospwd",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "crackle",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "fcrackzip",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "hashcat",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "john",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "johnny",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "ophcrack",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "ophcrack-cli",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "rcrack",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "rcracki_mt",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "sipcrack",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "sucrack",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "truecrack",
+      "category": "\u2022 Password Cracking",
+      "installed": true
+    },
+    {
+      "name": "gitxray",
+      "category": "\u2022 Unsecured Credentials",
+      "installed": true
+    },
+    {
+      "name": "trufflehog",
+      "category": "\u2022 Unsecured Credentials",
+      "installed": true
+    },
+    {
+      "name": "aircrack-ng",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "airgeddon",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "bully",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "cowpatty",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "eapmd5pass",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "fern-wifi-cracker",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "freeradius",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "pixiewps",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "reaver",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "wifi-honey",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "wifiphisher",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "wifite",
+      "category": "\u2022 WiFi",
+      "installed": true
+    },
+    {
+      "name": "xspy",
+      "category": "\u2022 Keylogger",
+      "installed": true
+    },
+    {
+      "name": "svcrack",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "enumiax",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "mfcuk",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "mfoc",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "mfterm",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "mifare-classic-format",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "nfc-list",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "nfc-mfclassic",
+      "category": "\u2022 NFC",
+      "installed": true
+    },
+    {
+      "name": "kerberoast",
+      "category": "\u2022 Kerberoasting",
+      "installed": true
+    },
+    {
+      "name": "krbrelayx",
+      "category": "\u2022 Kerberoasting",
+      "installed": true
+    },
+    {
+      "name": "responder",
+      "category": "08 - Credential Access",
+      "installed": true
+    },
+    {
+      "name": "masscan",
+      "category": "\u2022 Network Service Discovery",
+      "installed": true
+    },
+    {
+      "name": "sctpscan",
+      "category": "\u2022 Network Service Discovery",
+      "installed": true
+    },
+    {
+      "name": "ike-scan",
+      "category": "\u2022 Network Service Discovery",
+      "installed": true
+    },
+    {
+      "name": "sslscan",
+      "category": "\u2022 SSL / TLS",
+      "installed": true
+    },
+    {
+      "name": "sslyze",
+      "category": "\u2022 SSL / TLS",
+      "installed": true
+    },
+    {
+      "name": "tlssled",
+      "category": "\u2022 SSL / TLS",
+      "installed": true
+    },
+    {
+      "name": "snmp-check",
+      "category": "\u2022 SNMP",
+      "installed": true
+    },
+    {
+      "name": "braa",
+      "category": "\u2022 SNMP",
+      "installed": true
+    },
+    {
+      "name": "onesixtyone",
+      "category": "\u2022 SNMP",
+      "installed": true
+    },
+    {
+      "name": "above",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "arpspoof",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "darkstat",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "dnschef",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "driftnet",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "dsniff",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "hexinject",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "netsniff-ng",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "org.wireshark.Wireshark",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "scapy",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "tcpdump",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "tcpflow",
+      "category": "\u2022 Network Sniffing",
+      "installed": true
+    },
+    {
+      "name": "arping",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "arpwatch",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "atk6-thcping6",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "fierce",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "fping",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "hping3",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "iputils-arping",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "p0f",
+      "category": "\u2022 Remote System Discovery",
+      "installed": true
+    },
+    {
+      "name": "apache-users",
+      "category": "\u2022 Account Discovery",
+      "installed": true
+    },
+    {
+      "name": "smtp-user-enum",
+      "category": "\u2022 Account Discovery",
+      "installed": true
+    },
+    {
+      "name": "enum4linux",
+      "category": "\u2022 Network Share Discovery",
+      "installed": true
+    },
+    {
+      "name": "enum4linux-ng",
+      "category": "\u2022 Network Share Discovery",
+      "installed": true
+    },
+    {
+      "name": "nbtscan",
+      "category": "\u2022 Network Share Discovery",
+      "installed": true
+    },
+    {
+      "name": "smbclient",
+      "category": "\u2022 Network Share Discovery",
+      "installed": true
+    },
+    {
+      "name": "snaffler",
+      "category": "\u2022 Network Share Discovery",
+      "installed": true
+    },
+    {
+      "name": "pspy",
+      "category": "\u2022 Process Discovery",
+      "installed": true
+    },
+    {
+      "name": "pspy-binaries",
+      "category": "\u2022 Process Discovery",
+      "installed": true
+    },
+    {
+      "name": "0trace.sh",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "ass",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "cdp",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "intrace",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "netdiscover",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "netmask",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "sara",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "yersinia",
+      "category": "\u2022 System Network Configuration Discovery",
+      "installed": true
+    },
+    {
+      "name": "firewalk",
+      "category": "\u2022 Network Security Appliances",
+      "installed": true
+    },
+    {
+      "name": "tcpreplay",
+      "category": "\u2022 Network Security Appliances",
+      "installed": true
+    },
+    {
+      "name": "wafw00f",
+      "category": "\u2022 Network Security Appliances",
+      "installed": true
+    },
+    {
+      "name": "impacket-mssqlclient",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "mdb-sql",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "mysql",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "oscanner",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "sidguess",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "sqlitebrowser",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "tnscmd10g",
+      "category": "\u2022 Databases",
+      "installed": true
+    },
+    {
+      "name": "mxcheck",
+      "category": "\u2022 SMTP",
+      "installed": true
+    },
+    {
+      "name": "swaks",
+      "category": "\u2022 SMTP",
+      "installed": true
+    },
+    {
+      "name": "cge.pl",
+      "category": "\u2022 Cisco Tools",
+      "installed": true
+    },
+    {
+      "name": "cisco-ocs",
+      "category": "\u2022 Cisco Tools",
+      "installed": true
+    },
+    {
+      "name": "cisco-torch",
+      "category": "\u2022 Cisco Tools",
+      "installed": true
+    },
+    {
+      "name": "copy-router-config.pl",
+      "category": "\u2022 Cisco Tools",
+      "installed": true
+    },
+    {
+      "name": "merge-router-config.pl",
+      "category": "\u2022 Cisco Tools",
+      "installed": true
+    },
+    {
+      "name": "azurehound",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "bloodhound-start",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "bloodhound-python",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "bloodhound-ce-python",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "ldeep",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "sharphound",
+      "category": "\u2022 Active Directory",
+      "installed": true
+    },
+    {
+      "name": "protos-sip",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "rtpbreak",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "rtpinsertsound",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "rtpmixsound",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "siparmyknife",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "sipp",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "sippts",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "sipsak",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "svcrash",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "svmap",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "svreport",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "svwar",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "voiphopper",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "ohrwurm",
+      "category": "\u2022 VoIP",
+      "installed": true
+    },
+    {
+      "name": "impacket-smbexec",
+      "category": "10 - Lateral Movement",
+      "installed": true
+    },
+    {
+      "name": "impacket-psexec",
+      "category": "10 - Lateral Movement",
+      "installed": true
+    },
+    {
+      "name": "rdesktop",
+      "category": "10 - Lateral Movement",
+      "installed": true
+    },
+    {
+      "name": "httrack",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "ettercap-text-only",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "ettercap",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "evilginx2",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "fiked",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "fluxion",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "mitmproxy",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "mitm6",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "ssldump",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "sslsplit",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "sslsniff",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "wifipumpkin3",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "ferret-sidejack",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "hamster-sidejack",
+      "category": "11 - Collection",
+      "installed": true
+    },
+    {
+      "name": "cadaver",
+      "category": "\u2022 Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "minicom",
+      "category": "\u2022 Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "dbd",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "ncat",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "netcat",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "penelope",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "powercat",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "sbd",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "socat",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "termineter",
+      "category": "\u2022 Non-Application Layer Protocol",
+      "installed": true
+    },
+    {
+      "name": "chisel",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "chisel-common-binaries",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "dns2tcpc",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "dns2tcpd",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "dnscat",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "iodine-client-start",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ligolo-agent",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ligolo-proxy",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ligolo-mp",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ligolo-mp-client",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ligolo-ng-common-binaries",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "miredo",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "proxychains4",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "proxytunnel",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "ptunnel",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "pwnat",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "sshuttle",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "sslh",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "stunnel4",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "udptunnel",
+      "category": "\u2022 Protocol Tunneling",
+      "installed": true
+    },
+    {
+      "name": "adaptixclient",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "adaptixserver",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "havoc",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "hoaxshell",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "koadic",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "powershell-empire",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "starkiller-start",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "villain",
+      "category": "12 - Command and Control",
+      "installed": true
+    },
+    {
+      "name": "impacket-smbserver",
+      "category": "13 - Exfiltration",
+      "installed": true
+    },
+    {
+      "name": "goshs",
+      "category": "13 - Exfiltration",
+      "installed": true
+    },
+    {
+      "name": "raven",
+      "category": "13 - Exfiltration",
+      "installed": true
+    },
+    {
+      "name": "dhcpig",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "goldeneye",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "iaxflood",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "inviteflood",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "mdk3",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "rtpflood",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "siege",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "slowhttptest",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "t50",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "thc-ssl-dos",
+      "category": "14 - Impact",
+      "installed": true
+    },
+    {
+      "name": "dc3dd",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "dcfldd",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "io.github.horsicq.detect-it-easy",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "hexwalk",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "missidentify",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "readpst",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "reglookup",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "regripper",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "undbx",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "vinetto",
+      "category": "\u2022 Digital Forensics",
+      "installed": true
+    },
+    {
+      "name": "ext3grep",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "ext4magic",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "extundelete",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "foremost",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "magicrescue",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "myrescue",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "pasco",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "photorec",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "readpe",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "recoverdm",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "recoverjpeg",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "rifiuti",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "rifiuti2",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "safecopy",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "scalpel",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "scrounge-ntfs",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "testdisk",
+      "category": "\u2022 Forensic Carving Tools",
+      "installed": true
+    },
+    {
+      "name": "affcat",
+      "category": "\u2022 Forensic Imaging Tools",
+      "installed": true
+    },
+    {
+      "name": "dd_rescue",
+      "category": "\u2022 Forensic Imaging Tools",
+      "installed": true
+    },
+    {
+      "name": "ewfacquire",
+      "category": "\u2022 Forensic Imaging Tools",
+      "installed": true
+    },
+    {
+      "name": "guymager",
+      "category": "\u2022 Forensic Imaging Tools",
+      "installed": true
+    },
+    {
+      "name": "pdfid",
+      "category": "\u2022 PDF Forensics Tools",
+      "installed": true
+    },
+    {
+      "name": "pdf-parser",
+      "category": "\u2022 PDF Forensics Tools",
+      "installed": true
+    },
+    {
+      "name": "autopsy",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "blkcalc",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "blkcat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "blkls",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "blkstat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "ffind",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "fls",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "fsstat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "grokevt-addlog",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "grokevt-builddb",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "grokevt-findlogs",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "grokevt-parselog",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "grokevt-ripdll",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "hfind",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "icat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "ifind",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "ils",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "img_cat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "img_stat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "istat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "jcat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "jls",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "mactime",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "mmcat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "mmls",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "mmstat",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "sigfind",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "sorter",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "srch_strings",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "tsk_comparedir",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "tsk_gettimes",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "tsk_loaddb",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "tsk_recover",
+      "category": "\u2022 Sleuth Kit Suite",
+      "installed": true
+    },
+    {
+      "name": "binwalk",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "binwalk3",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "bulk_extractor",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "chkrootkit",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "galleta",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "hashdeep",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "rkhunter",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "ssdeep",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "unhide",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "xplico-webui-start",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "yara",
+      "category": "15 - Forensics",
+      "installed": true
+    },
+    {
+      "name": "cherrytree",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "dradis-start",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "faraday-start",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "obsidian",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "pipal",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "recordmydesktop",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "redeye-start",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "cutycapt",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "eyewitness",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "witnessme",
+      "category": "\u2022 Reporting Tools",
+      "installed": true
+    },
+    {
+      "name": "juice-shop-start",
+      "category": "\u2022 Laboratories",
+      "installed": true
+    },
+    {
+      "name": "dvwa-start",
+      "category": "\u2022 Laboratories",
+      "installed": true
+    },
+    {
+      "name": "beef-xss-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "bloodhound-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "defectdojo-start",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "defectdojo-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "dradis-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "dvwa-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "faraday-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "gophish-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "gvm-check-setup",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "gvm-setup",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "gvm-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "juice-shop-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "portspoof-start",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "portspoof-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "redeye-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "starkiller-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "thehive-start",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "thehive-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "xplico-webui-stop",
+      "category": "\u2022 System Services",
+      "installed": true
+    },
+    {
+      "name": "exploit-database",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-bugs",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-docs",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-forums",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-nethunter",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-tools",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "kali-www",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "offsec-training",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "vulnhub",
+      "category": "\u2022 Kali & OffSec Links",
+      "installed": true
+    },
+    {
+      "name": "arsenal-ng",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "gemini-cli",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "hexstrike_server",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "kali-tweaks",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "pwsh",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "root-terminal",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "snapper-gui",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "shell-gpt",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    },
+    {
+      "name": "tailscale",
+      "category": "16 - Services and Other Tools",
+      "installed": true
+    }
+  ],
+  "categories": {
+    "\u2022 Host Information": [
+      "metagoofil",
+      "spiderfoot",
+      "spiderfoot-cli"
+    ],
+    "\u2022 Identity Information": [
+      "email2phonenumber",
+      "emailharvester",
+      "instaloader",
+      "linkedin2username",
+      "photon",
+      "sherlock",
+      "tookie-osint"
+    ],
+    "\u2022 Network Information": [
+      "amass",
+      "autorecon",
+      "dmitry",
+      "legion",
+      "nmap",
+      "zenmap",
+      "rustscan",
+      "theHarvester",
+      "unicornscan"
+    ],
+    "\u2022 Network Information: DNS": [
+      "dnsmap",
+      "dnsrecon",
+      "dnsenum",
+      "massdns",
+      "dnstracer",
+      "dnswalk"
+    ],
+    "\u2022 Web Scanning": [
+      "assetfinder",
+      "arjun",
+      "dirb",
+      "dirbuster",
+      "dirsearch",
+      "feroxbuster",
+      "ffuf",
+      "finalrecon",
+      "findomain",
+      "gobuster",
+      "gospider",
+      "katana",
+      "lbd",
+      "parsero",
+      "recon-ng",
+      "subfinder",
+      "sublist3r",
+      "uniscan-gui",
+      "urlcrazy",
+      "uro",
+      "wfuzz",
+      "wpprobe"
+    ],
+    "\u2022 Vulnerability Scanning": [
+      "CAT",
+      "gvm-start",
+      "heartleech",
+      "owasp-mantra-ff"
+    ],
+    "\u2022 Web Vulnerability Scanning": [
+      "burpsuite",
+      "caido",
+      "caido-cli",
+      "crlfuzz",
+      "dalfox",
+      "davtest",
+      "joomscan",
+      "nikto",
+      "nuclei",
+      "paros",
+      "qsreplace",
+      "skipfish",
+      "sstimap",
+      "subjack",
+      "tinja",
+      "wapiti",
+      "watobo",
+      "wcvs",
+      "webscarab",
+      "whatweb",
+      "wpscan",
+      "zaproxy"
+    ],
+    "\u2022 Bluetooth": [
+      "bettercap",
+      "bluelog",
+      "bluesnarfer",
+      "btscanner",
+      "blueranger",
+      "fang",
+      "spooftooph",
+      "ubertooth-util"
+    ],
+    "\u2022 WiFi": [
+      "asleap",
+      "kismet",
+      "sparrow-wifi",
+      "wash",
+      "aircrack-ng",
+      "airgeddon",
+      "bully",
+      "cowpatty",
+      "eapmd5pass",
+      "fern-wifi-cracker",
+      "freeradius",
+      "pixiewps",
+      "reaver",
+      "wifi-honey",
+      "wifiphisher",
+      "wifite"
+    ],
+    "\u2022 Radio Frequency": [
+      "hackrf_info",
+      "gnuradio-grc",
+      "dk.gqrx.gqrx",
+      "chirp",
+      "rfcat"
+    ],
+    "01 - Reconnaissance": [
+      "maltego",
+      "maltego-installer"
+    ],
+    "02 - Resource Development": [
+      "code-oss",
+      "donut",
+      "sickle-pdk",
+      "wixl",
+      "wmic",
+      "wmis",
+      "pyinstaller",
+      "olevba",
+      "olefile",
+      "afl-fuzz",
+      "bed",
+      "generic_chunked",
+      "generic_listen_tcp",
+      "generic_send_tcp",
+      "generic_send_udp",
+      "sfuzz",
+      "msf-nasm_shell",
+      "msfvenom",
+      "msfpc",
+      "shellnoob",
+      "clang",
+      "clang++",
+      "edb",
+      "ollydbg",
+      "gef",
+      "gdb",
+      "cstool",
+      "ghidra",
+      "radare2",
+      "rizin",
+      "re.rizin.cutter",
+      "recstudio",
+      "recstudio-cli",
+      "apktool",
+      "bytecode-viewer",
+      "jadx-gui",
+      "javasnoop",
+      "jd-gui",
+      "d2j-dex2jar",
+      "pompem",
+      "searchsploit",
+      "exploitdb-papers"
+    ],
+    "03 - Initial Access": [
+      "dns-rebind",
+      "gophish-start",
+      "phishery",
+      "setoolkit",
+      "metasploit-framework",
+      "sqlmap",
+      "sqlninja",
+      "sqlsus",
+      "jsql",
+      "commix",
+      "jboss-linux",
+      "jboss-win"
+    ],
+    "04 - Execution": [
+      "armitage",
+      "evilgrade",
+      "beef-xss-start",
+      "xsser",
+      "xsstrike",
+      "nishang",
+      "powersploit"
+    ],
+    "05 - Persistence": [
+      "laudanum",
+      "phpggc",
+      "seclists",
+      "webacoo",
+      "webshells",
+      "weevely",
+      "backdoor-factory",
+      "cymothoa"
+    ],
+    "06 - Privilege Escalation": [
+      "lynis",
+      "peass",
+      "linpeas",
+      "winpeas",
+      "unix-privesc-check",
+      "bloodyad"
+    ],
+    "\u2022 Pass-the-Hash": [
+      "crackmapexec",
+      "evil-winrm",
+      "evil-winrm-py",
+      "impacket-scripts",
+      "mimikatz",
+      "netexec",
+      "passing-the-hash",
+      "rubeus",
+      "smbmap",
+      "xfreerdp3"
+    ],
+    "07 - Defense Evasion": [
+      "sniffjoke",
+      "ftest",
+      "fragrouter",
+      "macchanger",
+      "outguess",
+      "steghide",
+      "org.stegosuite",
+      "stegsnow",
+      "exe2hex",
+      "shellter",
+      "veil",
+      "ccrypt",
+      "padbuster"
+    ],
+    "\u2022 OS Credential Dumping": [
+      "chntpw",
+      "creddump7",
+      "samdump2"
+    ],
+    "\u2022 Hash Identification": [
+      "hashid",
+      "hash-identifier"
+    ],
+    "\u2022 Password Profiling & Wordlists": [
+      "bopscrk",
+      "cewl",
+      "crunch",
+      "maskgen",
+      "policygen",
+      "rsmangler",
+      "statsgen",
+      "twofi",
+      "wordlists"
+    ],
+    "\u2022 Brute Force": [
+      "crowbar",
+      "hydra",
+      "hydra-gtk",
+      "legba",
+      "medusa",
+      "ncrack",
+      "patator",
+      "sqldict",
+      "thc-pptp-bruter"
+    ],
+    "\u2022 Password Cracking": [
+      "cmospwd",
+      "crackle",
+      "fcrackzip",
+      "hashcat",
+      "john",
+      "johnny",
+      "ophcrack",
+      "ophcrack-cli",
+      "rcrack",
+      "rcracki_mt",
+      "sipcrack",
+      "sucrack",
+      "truecrack"
+    ],
+    "\u2022 Unsecured Credentials": [
+      "gitxray",
+      "trufflehog"
+    ],
+    "\u2022 Keylogger": [
+      "xspy"
+    ],
+    "\u2022 VoIP": [
+      "svcrack",
+      "enumiax",
+      "protos-sip",
+      "rtpbreak",
+      "rtpinsertsound",
+      "rtpmixsound",
+      "siparmyknife",
+      "sipp",
+      "sippts",
+      "sipsak",
+      "svcrash",
+      "svmap",
+      "svreport",
+      "svwar",
+      "voiphopper",
+      "ohrwurm"
+    ],
+    "\u2022 NFC": [
+      "mfcuk",
+      "mfoc",
+      "mfterm",
+      "mifare-classic-format",
+      "nfc-list",
+      "nfc-mfclassic"
+    ],
+    "\u2022 Kerberoasting": [
+      "kerberoast",
+      "krbrelayx"
+    ],
+    "08 - Credential Access": [
+      "responder"
+    ],
+    "\u2022 Network Service Discovery": [
+      "masscan",
+      "sctpscan",
+      "ike-scan"
+    ],
+    "\u2022 SSL / TLS": [
+      "sslscan",
+      "sslyze",
+      "tlssled"
+    ],
+    "\u2022 SNMP": [
+      "snmp-check",
+      "braa",
+      "onesixtyone"
+    ],
+    "\u2022 Network Sniffing": [
+      "above",
+      "arpspoof",
+      "darkstat",
+      "dnschef",
+      "driftnet",
+      "dsniff",
+      "hexinject",
+      "netsniff-ng",
+      "org.wireshark.Wireshark",
+      "scapy",
+      "tcpdump",
+      "tcpflow"
+    ],
+    "\u2022 Remote System Discovery": [
+      "arping",
+      "arpwatch",
+      "atk6-thcping6",
+      "fierce",
+      "fping",
+      "hping3",
+      "iputils-arping",
+      "p0f"
+    ],
+    "\u2022 Account Discovery": [
+      "apache-users",
+      "smtp-user-enum"
+    ],
+    "\u2022 Network Share Discovery": [
+      "enum4linux",
+      "enum4linux-ng",
+      "nbtscan",
+      "smbclient",
+      "snaffler"
+    ],
+    "\u2022 Process Discovery": [
+      "pspy",
+      "pspy-binaries"
+    ],
+    "\u2022 System Network Configuration Discovery": [
+      "0trace.sh",
+      "ass",
+      "cdp",
+      "intrace",
+      "netdiscover",
+      "netmask",
+      "sara",
+      "yersinia"
+    ],
+    "\u2022 Network Security Appliances": [
+      "firewalk",
+      "tcpreplay",
+      "wafw00f"
+    ],
+    "\u2022 Databases": [
+      "impacket-mssqlclient",
+      "mdb-sql",
+      "mysql",
+      "oscanner",
+      "sidguess",
+      "sqlitebrowser",
+      "tnscmd10g"
+    ],
+    "\u2022 SMTP": [
+      "mxcheck",
+      "swaks"
+    ],
+    "\u2022 Cisco Tools": [
+      "cge.pl",
+      "cisco-ocs",
+      "cisco-torch",
+      "copy-router-config.pl",
+      "merge-router-config.pl"
+    ],
+    "\u2022 Active Directory": [
+      "azurehound",
+      "bloodhound-start",
+      "bloodhound-python",
+      "bloodhound-ce-python",
+      "ldeep",
+      "sharphound"
+    ],
+    "10 - Lateral Movement": [
+      "impacket-smbexec",
+      "impacket-psexec",
+      "rdesktop"
+    ],
+    "11 - Collection": [
+      "httrack",
+      "ettercap-text-only",
+      "ettercap",
+      "evilginx2",
+      "fiked",
+      "fluxion",
+      "mitmproxy",
+      "mitm6",
+      "ssldump",
+      "sslsplit",
+      "sslsniff",
+      "wifipumpkin3",
+      "ferret-sidejack",
+      "hamster-sidejack"
+    ],
+    "\u2022 Application Layer Protocol": [
+      "cadaver",
+      "minicom"
+    ],
+    "\u2022 Non-Application Layer Protocol": [
+      "dbd",
+      "ncat",
+      "netcat",
+      "penelope",
+      "powercat",
+      "sbd",
+      "socat",
+      "termineter"
+    ],
+    "\u2022 Protocol Tunneling": [
+      "chisel",
+      "chisel-common-binaries",
+      "dns2tcpc",
+      "dns2tcpd",
+      "dnscat",
+      "iodine-client-start",
+      "ligolo-agent",
+      "ligolo-proxy",
+      "ligolo-mp",
+      "ligolo-mp-client",
+      "ligolo-ng-common-binaries",
+      "miredo",
+      "proxychains4",
+      "proxytunnel",
+      "ptunnel",
+      "pwnat",
+      "sshuttle",
+      "sslh",
+      "stunnel4",
+      "udptunnel"
+    ],
+    "12 - Command and Control": [
+      "adaptixclient",
+      "adaptixserver",
+      "havoc",
+      "hoaxshell",
+      "koadic",
+      "powershell-empire",
+      "starkiller-start",
+      "villain"
+    ],
+    "13 - Exfiltration": [
+      "impacket-smbserver",
+      "goshs",
+      "raven"
+    ],
+    "14 - Impact": [
+      "dhcpig",
+      "goldeneye",
+      "iaxflood",
+      "inviteflood",
+      "mdk3",
+      "rtpflood",
+      "siege",
+      "slowhttptest",
+      "t50",
+      "thc-ssl-dos"
+    ],
+    "\u2022 Digital Forensics": [
+      "dc3dd",
+      "dcfldd",
+      "io.github.horsicq.detect-it-easy",
+      "hexwalk",
+      "missidentify",
+      "readpst",
+      "reglookup",
+      "regripper",
+      "undbx",
+      "vinetto"
+    ],
+    "\u2022 Forensic Carving Tools": [
+      "ext3grep",
+      "ext4magic",
+      "extundelete",
+      "foremost",
+      "magicrescue",
+      "myrescue",
+      "pasco",
+      "photorec",
+      "readpe",
+      "recoverdm",
+      "recoverjpeg",
+      "rifiuti",
+      "rifiuti2",
+      "safecopy",
+      "scalpel",
+      "scrounge-ntfs",
+      "testdisk"
+    ],
+    "\u2022 Forensic Imaging Tools": [
+      "affcat",
+      "dd_rescue",
+      "ewfacquire",
+      "guymager"
+    ],
+    "\u2022 PDF Forensics Tools": [
+      "pdfid",
+      "pdf-parser"
+    ],
+    "\u2022 Sleuth Kit Suite": [
+      "autopsy",
+      "blkcalc",
+      "blkcat",
+      "blkls",
+      "blkstat",
+      "ffind",
+      "fls",
+      "fsstat",
+      "grokevt-addlog",
+      "grokevt-builddb",
+      "grokevt-findlogs",
+      "grokevt-parselog",
+      "grokevt-ripdll",
+      "hfind",
+      "icat",
+      "ifind",
+      "ils",
+      "img_cat",
+      "img_stat",
+      "istat",
+      "jcat",
+      "jls",
+      "mactime",
+      "mmcat",
+      "mmls",
+      "mmstat",
+      "sigfind",
+      "sorter",
+      "srch_strings",
+      "tsk_comparedir",
+      "tsk_gettimes",
+      "tsk_loaddb",
+      "tsk_recover"
+    ],
+    "15 - Forensics": [
+      "binwalk",
+      "binwalk3",
+      "bulk_extractor",
+      "chkrootkit",
+      "galleta",
+      "hashdeep",
+      "rkhunter",
+      "ssdeep",
+      "unhide",
+      "xplico-webui-start",
+      "yara"
+    ],
+    "\u2022 Reporting Tools": [
+      "cherrytree",
+      "dradis-start",
+      "faraday-start",
+      "obsidian",
+      "pipal",
+      "recordmydesktop",
+      "redeye-start",
+      "cutycapt",
+      "eyewitness",
+      "witnessme"
+    ],
+    "\u2022 Laboratories": [
+      "juice-shop-start",
+      "dvwa-start"
+    ],
+    "\u2022 System Services": [
+      "beef-xss-stop",
+      "bloodhound-stop",
+      "defectdojo-start",
+      "defectdojo-stop",
+      "dradis-stop",
+      "dvwa-stop",
+      "faraday-stop",
+      "gophish-stop",
+      "gvm-check-setup",
+      "gvm-setup",
+      "gvm-stop",
+      "juice-shop-stop",
+      "portspoof-start",
+      "portspoof-stop",
+      "redeye-stop",
+      "starkiller-stop",
+      "thehive-start",
+      "thehive-stop",
+      "xplico-webui-stop"
+    ],
+    "\u2022 Kali & OffSec Links": [
+      "exploit-database",
+      "kali-bugs",
+      "kali-docs",
+      "kali-forums",
+      "kali-nethunter",
+      "kali-tools",
+      "kali-www",
+      "offsec-training",
+      "vulnhub"
+    ],
+    "16 - Services and Other Tools": [
+      "arsenal-ng",
+      "gemini-cli",
+      "hexstrike_server",
+      "kali-tweaks",
+      "pwsh",
+      "root-terminal",
+      "snapper-gui",
+      "shell-gpt",
+      "tailscale"
+    ]
+  },
+  "vulnerability_to_tools": {
+    "sqli": [
+      "sqlmap",
+      "sqlninja",
+      "ghauri",
+      "bbqsql"
+    ],
+    "xss": [
+      "dalfox",
+      "xsser",
+      "commix"
+    ],
+    "ssrf": [
+      "ssrfmap",
+      "gopherus",
+      "fetch_ssrf"
+    ],
+    "rce": [
+      "commix",
+      "rce-scanner",
+      "execwrap"
+    ],
+    "ssti": [
+      "tplmap",
+      "sstimap"
+    ],
+    "xxe": [
+      "xxeinjector",
+      "xxexploiter"
+    ],
+    "idor": [
+      "autorize",
+      "bhptools"
+    ],
+    "file_upload": [
+      "fuxploider"
+    ],
+    "deserialization": [
+      "ysoserial",
+      "phpggc"
+    ],
+    "brute_force_ssh": [
+      "hydra",
+      "medusa",
+      "ncrack",
+      "patator"
+    ],
+    "brute_force_http": [
+      "hydra",
+      "medusa",
+      "thc-hydra",
+      "patator"
+    ],
+    "brute_force_smb": [
+      "hydra",
+      "medusa",
+      "nbtscan",
+      "enum4linux"
+    ],
+    "network_scan": [
+      "nmap",
+      "masscan",
+      "rustscan",
+      "naabu"
+    ],
+    "web_scan": [
+      "nikto",
+      "wpscan",
+      "dirsearch",
+      "gobuster",
+      "ffuf",
+      "feroxbuster"
+    ],
+    "snmp_enum": [
+      "snmpcheck",
+      "onesixtyone",
+      "snmpwalk",
+      "snmp-mib-downloader"
+    ],
+    "nfs_enum": [
+      "showmount",
+      "nfs-common"
+    ],
+    "vnc_enum": [
+      "vncviewer",
+      "tightvnc"
+    ],
+    "rdp_enum": [
+      "rdp-ntlm-info",
+      "crowbar"
+    ],
+    "exploit_search": [
+      "searchsploit",
+      "metasploit-framework"
+    ],
+    "privesc_linux": [
+      "linux-exploit-suggester",
+      "linpeas",
+      "linux-smart-enumeration"
+    ],
+    "privesc_windows": [
+      "sherlock",
+      "powerup",
+      "seatbelt",
+      "winPEAS"
+    ],
+    "c2": [
+      "metasploit-framework",
+      "sliver",
+      "havoc"
+    ],
+    "osint": [
+      "theharvester",
+      "maltego",
+      "spiderfoot",
+      "sherlock"
+    ],
+    "wifi": [
+      "aircrack-ng",
+      "wifite",
+      "kismet",
+      "bully",
+      "reaver"
+    ],
+    "bluetooth": [
+      "bluetooth-tools",
+      "btscanner",
+      "spooftooph"
+    ],
+    "forensics": [
+      "autopsy",
+      "volatility",
+      "binwalk",
+      "foremost"
+    ],
+    "reverse": [
+      "ghidra",
+      "radare2",
+      "gdb",
+      "objdump",
+      "strings",
+      "retdec"
+    ],
+    "fuzzing": [
+      "afl-fuzz",
+      "honggfuzz",
+      "wfuzz",
+      "ffuf",
+      "bfuzz"
+    ]
+  },
+  "service_to_tools": {
+    "ssh": {
+      "enum": [
+        "nmap --script ssh*",
+        "ssh-keyscan"
+      ],
+      "exploit": [
+        "hydra",
+        "medusa"
+      ],
+      "cve": [
+        "cve_lookup",
+        "searchsploit"
+      ]
+    },
+    "http": {
+      "enum": [
+        "nikto",
+        "whatweb",
+        "gobuster",
+        "ffuf",
+        "dirsearch"
+      ],
+      "exploit": [
+        "sqlmap",
+        "commix"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "https": {
+      "enum": [
+        "sslscan",
+        "sslyze",
+        "testssl.sh"
+      ],
+      "exploit": [
+        "sqlmap",
+        "sslstrip"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "snmp": {
+      "enum": [
+        "snmpwalk",
+        "onesixtyone",
+        "snmpcheck"
+      ],
+      "exploit": [
+        "metasploit-framework"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "nfs": {
+      "enum": [
+        "showmount",
+        "rpcinfo"
+      ],
+      "exploit": [
+        "metasploit-framework"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "smb": {
+      "enum": [
+        "enum4linux",
+        "nbtscan",
+        "smbclient",
+        "smbmap"
+      ],
+      "exploit": [
+        "metasploit-framework"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "rdp": {
+      "enum": [
+        "nmap --script rdp-*"
+      ],
+      "exploit": [
+        "crowbar",
+        "ncrack"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "vnc": {
+      "enum": [
+        "nmap --script vnc-*"
+      ],
+      "exploit": [
+        "vncviewer"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "dns": {
+      "enum": [
+        "dig",
+        "dnsrecon",
+        "dnsenum"
+      ],
+      "exploit": [
+        "metasploit-framework"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "mysql": {
+      "enum": [
+        "nmap --script mysql-*"
+      ],
+      "exploit": [
+        "hydra",
+        "sqlmap"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "ftp": {
+      "enum": [
+        "nmap --script ftp-*"
+      ],
+      "exploit": [
+        "hydra"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    },
+    "smtp": {
+      "enum": [
+        "nmap --script smtp-*"
+      ],
+      "exploit": [
+        "swaks"
+      ],
+      "cve": [
+        "searchsploit"
+      ]
+    }
+  }
+}
