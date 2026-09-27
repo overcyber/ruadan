@@ -1,0 +1,1229 @@
+## Use the name of the desktop file for the tool
+## You can omit the kali- prefix
+
+## TODO
+## - Add all resources tools (mostly the ones using kali-treecd)
+
+- Category: Usual Applications
+  Name: Usual Applications
+  Name[es]: Aplicationes habituales
+  Name[fr]: Applications habituelles
+  Name[de]: Übliche Anwendungen
+  Name[pt]: Aplicações habituais
+  Name[zh_CN]: 常用程序
+
+- Category: Reconnaissance
+# Actively or passively gathering information that can be used to support.
+# targeting
+  Name: 01 - Reconnaissance
+  Name[es]: 01 - Reconocimiento
+  Name[fr]: 01 - Reconnaissance
+  Name[de]: 01 - Erkennung
+  Name[pt]: 01 - Reconhecimento
+  Name[zh_CN]: 01 - 侦察
+  Include:
+    - Category: Host Information # T1592
+      Name: • Host Information
+      Name[es]: • Información del Host
+      Name[fr]: • Informations sur l'hôte
+      Name[de]: • Host-Informationen
+      Name[pt]: • Informações do Host
+      Name[zh_CN]: • 主机信息
+      Include:
+        - metagoofil
+        - spiderfoot
+        - spiderfoot-cli
+    - Category: Identity Information # T1589 
+      Name: • Identity Information
+      Name[es]: • Información de Identidad
+      Name[fr]: • Informations d'identité
+      Name[de]: • Identitätsinformationen
+      Name[pt]: • Informações de Identidade
+      Name[zh_CN]: • 身份信息
+      Include:
+        - email2phonenumber
+        - emailharvester
+        - instaloader
+        - linkedin2username
+        - photon
+        - sherlock
+        - tookie-osint
+    - Category: Network Information # T1590 
+      Name: • Network Information
+      Name[es]: • Información de Red
+      Name[fr]: • Informations sur le réseau
+      Name[de]: • Netzwerk-Informationen
+      Name[pt]: • Informações de Rede
+      Name[zh_CN]: • 网络信息
+      Include:
+        - amass
+        - autorecon
+        - dmitry
+        - legion
+        - nmap
+        - zenmap
+        - rustscan
+        - theHarvester
+        - unicornscan
+    - Category: "Network Information: DNS" # T1590/002
+      Name: "• Network Information: DNS"
+      Name[es]: "• Información de Red: DNS"
+      Name[fr]: "• Informations sur le réseau : DNS"
+      Name[de]: "• Netzwerk-Informationen: DNS"
+      Name[pt]: "• Informações de Rede: DNS"
+      Name[zh_CN]: "• 网络信息：DNS"
+      Include:
+        - dnsmap
+        - dnsrecon
+        - dnsenum
+        - massdns
+        - dnstracer
+        - dnswalk
+    - Category: Web Scanning # T1595 - Active Scanning
+      Name: • Web Scanning
+      Name[es]: • Escaneo Web
+      Name[fr]: • Analyse Web
+      Name[de]: • Web-Scannen
+      Name[pt]: • Varredura Web
+      Name[zh_CN]: • 网络扫描
+      Include:
+        - assetfinder
+        - arjun
+        - dirb
+        - dirbuster
+        - dirsearch
+        - feroxbuster
+        - ffuf
+        - finalrecon
+        - findomain
+        - gobuster
+        - gospider
+        - katana
+        - lbd
+        - parsero
+        - recon-ng
+        - subfinder
+        - sublist3r
+        - uniscan-gui
+        - urlcrazy
+        - uro
+        - wfuzz
+        - wpprobe
+    - Category: Vulnerability Scanning # T1595/002
+      Name: • Vulnerability Scanning
+      Name[es]: • Escaneo de Vulnerabilidades
+      Name[fr]: • Analyse de Vulnérabilités
+      Name[de]: • Schwachstellen-Scannen
+      Name[pt]: • Varredura de Vulnerabilidades
+      Name[zh_CN]: • 漏洞扫描
+      Include:
+        - nmap
+        - zenmap
+        - CAT
+        - gvm-start
+        - heartleech
+        - owasp-mantra-ff
+    - Category: Web Vulnerability Scanning # T1595/002
+      Name: • Web Vulnerability Scanning
+      Name[es]: • Escaneo de Vulnerabilidades Web
+      Name[fr]: • Analyse de Vulnérabilités Web
+      Name[de]: • Web-Schwachstellen-Scannen
+      Name[pt]: • Varredura de Vulnerabilidades Web
+      Name[zh_CN]: • Web 漏洞扫描
+      Include:
+        - burpsuite
+        - caido
+        - caido-cli
+        - crlfuzz
+        - dalfox
+        - davtest
+        - joomscan
+        - nikto
+        - nuclei
+        - paros
+        - qsreplace
+        - skipfish
+        - sstimap
+        - subjack
+        - tinja
+        - wapiti
+        - watobo
+        - wcvs
+        - webscarab
+        - whatweb
+        - wpscan
+        - zaproxy
+    - Category: Bluetooth
+      Name: • Bluetooth
+      Name[es]: • Bluetooth
+      Name[fr]: • Bluetooth
+      Name[de]: • Bluetooth
+      Name[pt]: • Bluetooth
+      Name[zh_CN]: • Bluetooth
+      Include:
+        - bettercap
+        - bluelog
+        - bluesnarfer
+        - btscanner
+        - blueranger
+        - fang
+        - spooftooph
+        - ubertooth-util
+    - Category: WiFi
+      Name: • WiFi
+      Name[es]: • WiFi
+      Name[fr]: • WiFi
+      Name[de]: • WiFi
+      Name[pt]: • WiFi
+      Name[zh_CN]: • WiFi
+      Include:
+        - asleap
+        - bettercap
+        - kismet
+        - sparrow-wifi
+        - wash
+    - Category: Radio Frequency
+      Name: • Radio Frequency
+      Name[es]: • Radio Frequency
+      Name[fr]: • Radio Frequency
+      Name[de]: • Radio Frequency
+      Name[pt]: • Radio Frequency
+      Name[zh_CN]: • Radio Frequency
+      Include:
+        - hackrf_info
+        - gnuradio-grc
+        - dk.gqrx.gqrx
+        - chirp
+        - rfcat
+    - photon
+    # Featured tools
+    - bettercap
+    - burpsuite
+    - caido
+    - dirb
+    - dirbuster
+    - ffuf
+    - gobuster
+    - legion
+    - maltego
+    - maltego-installer
+    - nmap
+    - recon-ng
+    - zenmap
+
+- Category: Resource Development
+# Creating, purchasing, or compromising/stealing resources that can be used to
+# support targeting. Such resources include infrastructure accounts, or 
+# capabilities.
+  Name: 02 - Resource Development
+  Name[es]: 02 - Desarrollo de Recursos
+  Name[fr]: 02 - Développement de Ressources
+  Name[de]: 02 - Ressourcenentwicklung
+  Name[pt]: 02 - Desenvolvimento de Recursos
+  Name[zh_CN]: 02 - 资源开发
+  Include:
+    - code-oss
+    # T1587/004 Develop Capabilities: Exploits
+    - donut
+    - sickle-pdk
+    - wixl
+    - wmic
+    - wmis
+    - pyinstaller
+    - olevba
+    - olefile
+    ## Fuzzing
+    - afl-fuzz
+    - bed
+    - generic_chunked
+    - generic_listen_tcp
+    - generic_send_tcp
+    - generic_send_udp
+    - sfuzz
+    ## Shellcode
+    - msf-nasm_shell
+    - msfvenom
+    - msfpc
+    - shellnoob
+    # Compilers
+    - clang
+    - clang++
+    # Debuggers
+    - edb
+    - ollydbg
+    - gef
+    - gdb
+    # Reverse Engineering: Binaries
+    - cstool
+    - ghidra
+    - radare2
+    - rizin
+    - re.rizin.cutter
+    - recstudio
+    - recstudio-cli
+    # Reverse Engineering: Android/Java
+    - apktool
+    - bytecode-viewer
+    - jadx-gui
+    - javasnoop
+    - jd-gui
+    - d2j-dex2jar
+    # T1588/005 - Obtain Capabilities: Exploits
+    - pompem
+    - searchsploit
+    - exploitdb-papers
+
+- Category: Initial Access
+# Gain initial foothold within a network
+  Name: 03 - Initial Access
+  Name[es]: 03 - Acceso Inicial
+  Name[fr]: 03 - Accès Initial
+  Name[de]: 03 - Erster Zugriff
+  Name[pt]: 03 - Acesso Inicial
+  Name[zh_CN]: 03 - 初始访问
+  Include:
+    - dns-rebind
+    # T1566 - Phishing
+    - gophish-start
+    - phishery
+    - setoolkit
+# T1190 - Exploit Public-Facing Application
+    - metasploit-framework
+    # SQL Injection
+    - sqlmap
+    - sqlninja
+    - sqlsus
+    - jsql
+    # Command Injection
+    - commix
+    - jboss-linux
+    - jboss-win
+
+- Category: Execution
+# Running adversary-controlled code on a local or remote system
+  Name: 04 - Execution
+  Name[es]: 04 - Ejecución
+  Name[fr]: 04 - Exécution
+  Name[de]: 04 - Ausführung
+  Name[pt]: 04 - Execução
+  Name[zh_CN]: 04 - 执行
+  Include:
+    # T1203 - Exploitation for Client Execution
+    - armitage
+    - metasploit-framework
+    - evilgrade
+    # T1059.007 - Command and Scripting Interpreter: JavaScript
+    ## XSS Injection
+    - beef-xss-start
+    - xsser
+    - xsstrike
+    # T1059.001 - Command and Scripting Interpreter: PowerShell
+    - nishang
+    - powersploit
+
+- Category: Persistence
+# Keep access to systems across restarts, changed credentials and other
+# interruptions
+  Name: 05 - Persistence
+  Name[es]: 05 - Persistencia
+  Name[fr]: 05 - Persistance
+  Name[de]: 05 - Persistenz
+  Name[pt]: 05 - Persistência
+  Name[zh_CN]: 05 - 持久性
+  Include:
+    # T1505/003 - Web Shell
+    - laudanum
+    - phpggc
+    - seclists
+    - webacoo
+    - webshells
+    - weevely
+    # OS Backdoors
+    - backdoor-factory
+    - cymothoa
+
+- Category: Privilege Escalation
+# Gain higher-level permissions on a system or network
+  Name: 06 - Privilege Escalation
+  Name[es]: 06 - Escalada de Privilegios
+  Name[fr]: 06 - Escalade de Privilèges
+  Name[de]: 06 - Privilegien Erweiterung
+  Name[pt]: 06 - Elevação de Privilégios
+  Name[zh_CN]: 06 - 权限提升
+  Include:
+    - lynis
+    - metasploit-framework
+    - peass
+    - linpeas
+    - winpeas
+    - unix-privesc-check
+    - bloodyad
+
+- Category: Defense Evasion
+# Avoid detection throughout their compromise
+  Name: 07 - Defense Evasion
+  Name[es]: 07 - Evasión de Defensas
+  Name[fr]: 07 - Évasion des Défenses
+  Name[de]: 07 - Verteidigung Ausweichen
+  Name[pt]: 07 - Evasão de Defesa
+  Name[zh_CN]: 07 - 防御规避
+  Include:
+    - &passing-the-hash # T1550/002
+      Category: Pass-the-Hash
+      Name: • Pass-the-Hash
+      Name[es]: • Pass-the-Hash
+      Name[fr]: • Pass-the-Hash
+      Name[de]: • Pass-the-Hash
+      Name[pt]: • Pass-the-Hash
+      Name[zh_CN]: • Pass-the-Hash
+      Include:
+        - crackmapexec
+        - evil-winrm
+        - evil-winrm-py
+        - impacket-scripts
+        - mimikatz
+        - netexec
+        - passing-the-hash
+        - rubeus
+        - smbmap
+        - xfreerdp3
+    # T1562 - Impair Defenses
+    - sniffjoke
+    # T1562/004 - Impair Defenses: Disable or Modify System Firewall
+    - ftest
+    - fragrouter
+    # T1036 - Masquerading
+    - macchanger
+    # T1027/003 – Obfuscated Files or Information: Steganography
+    - outguess
+    - steghide
+    - org.stegosuite
+    - stegsnow
+    # T1027/004 - Obfuscated Files or Information: Compile After Delivery
+    - donut
+    - exe2hex
+    - msfvenom
+    - shellter
+    - veil
+    # T1027/013 - Obfuscated Files or Information: Encrypted/Encoded File
+    - ccrypt
+    # T1140 - Deobfuscate/Decode Files or Information
+    - padbuster
+
+- Category: Credential Access
+# Stealing credentials like account names and passwords
+  Name: 08 - Credential Access
+  Name[es]: 08 - Acceso a Credenciales
+  Name[fr]: 08 - Accès aux Identifiants
+  Name[de]: 08 - Zugriff auf Zugangsdaten
+  Name[pt]: 08 - Acesso a Credenciais
+  Name[zh_CN]: 08 - 凭证访问
+  Include:
+    - Category: OS Credential Dumping # T1003
+      Name: • OS Credential Dumping
+      Name[es]: • Extracción de Credenciales del SO
+      Name[fr]: • Dumping des identifiants du OS
+      Name[de]: • Betriebssystem-Zugangsdatenextraktion
+      Name[pt]: • Extração de Credenciais do SO
+      Name[zh_CN]: • 操作系统凭据转储
+      Include:
+        - chntpw
+        - creddump7
+        - mimikatz
+        - rubeus
+        - samdump2
+    - Category: Hash Identification # Unsecured Credentials - T1552
+      Name: • Hash Identification
+      Name[es]: • Identificación de Hashes
+      Name[fr]: • Identification de Hash
+      Name[de]: • Hash-Erkennung
+      Name[pt]: • Identificação de Hash
+      Name[zh_CN]: • 哈希识别
+      Include:
+        - hashid
+        - hash-identifier
+    - Category: Password Profiling & Wordlists
+      Name: • Password Profiling & Wordlists
+      Name[es]: • Elaboración de Contraseñas y Listas de Palabras
+      Name[fr]: • Élaboration de Mots de Passe et Listes de Mots
+      Name[de]: • Erstellung von Passwörtern und Wortlisten
+      Name[pt]: • Elaboração de Senhas e Listas de Palavras
+      Name[zh_CN]: • 创建密码和单词列表
+      Include:
+        - bopscrk
+        - cewl
+        - crunch
+        - maskgen
+        - policygen
+        - rsmangler
+        - seclists
+        - statsgen
+        - twofi
+        - wordlists
+    - Category: Brute Force # T1110/001
+      Name: • Brute Force
+      Name[es]: • Fuerza Bruta
+      Name[fr]: • Attaque par force brute
+      Name[de]: • Brute-Force-Angriff
+      Name[pt]: • Força Bruta
+      Name[zh_CN]: • 暴力破解
+      Include:
+        - CAT
+        - crackmapexec
+        - crowbar
+        - hydra
+        - hydra-gtk
+        - legba
+        - medusa
+        - ncrack
+        - netexec
+        - patator
+        - sqldict
+        - thc-pptp-bruter
+    - Category: Password Cracking # T1110/002
+      Name: • Password Cracking
+      Name[es]: • Descifrado de Contraseñas
+      Name[fr]: • Craquage de Mots de Passe
+      Name[de]: • Passwort-Knacken
+      Name[pt]: • Quebra de Senhas
+      Name[zh_CN]: • 破解密码
+      Include:
+        - cmospwd
+        - crackle
+        - fcrackzip
+        - hashcat
+        - john
+        - johnny
+        - ophcrack
+        - ophcrack-cli
+        - rcrack
+        - rcracki_mt
+        - sipcrack
+        - sucrack
+        - truecrack
+    - Category: Unsecured Credentials # T1552
+      Name: • Unsecured Credentials
+      Name[es]: • Credenciales no protegidas
+      Name[fr]: • Identifiants non sécurisés
+      Name[de]: • Ungesicherte Anmeldeinformationen
+      Name[pt]: • Credenciais não protegidas
+      Name[zh_CN]: • 未加密的凭据
+      Include:
+        - gitxray
+        - trufflehog
+    - Category: WiFi Credential Access
+      Name: • WiFi
+      Name[es]: • WiFi
+      Name[fr]: • WiFi
+      Name[de]: • WiFi
+      Name[pt]: • WiFi
+      Name[zh_CN]: • WiFi
+      Include:
+        - aircrack-ng
+        - airgeddon
+        - bully
+        - cowpatty
+        - eapmd5pass
+        - fern-wifi-cracker
+        - freeradius
+        - pixiewps
+        - reaver
+        - wifi-honey
+        - wifiphisher
+        - wifite
+    - Category: Keylogger # T1056/001
+      Name: • Keylogger
+      Name[es]: • Keylogger
+      Name[fr]: • Enregistreur de frappe
+      Name[de]: • Keylogger
+      Name[pt]: • Keylogger
+      Name[zh_CN]: • 键盘记录
+      Include:
+        - xspy
+    - Category: VoIP Credential Access
+      Name: • VoIP
+      Name[es]: • VoIP
+      Name[fr]: • VoIP
+      Name[de]: • VoIP
+      Name[pt]: • VoIP
+      Name[zh_CN]: • VoIP
+      Include:
+        - svcrack
+        - enumiax
+    - Category: NFC
+      Name: • NFC
+      Name[es]: • NFC
+      Name[fr]: • NFC
+      Name[de]: • NFC
+      Name[pt]: • NFC
+      Name[zh_CN]: • NFC
+      Include:
+        - mfcuk
+        - mfoc
+        - mfterm
+        - mifare-classic-format
+        - nfc-list
+        - nfc-mfclassic
+    # T1558/003 - Kerberoasting
+    - Category: Kerberoasting
+      Name: • Kerberoasting
+      Name[es]: • Kerberoasting
+      Name[fr]: • Kerberoasting
+      Name[de]: • Kerberoasting
+      Name[pt]: • Kerberoasting
+      Name[zh_CN]: • Kerberoasting
+      Include:
+        - kerberoast
+        - krbrelayx
+    # T1557/001 - LLMNR/NBT-NS Poisoning and SMB Relay
+    - responder
+    # Featured tools
+    - cewl
+    - crunch
+    - hashcat
+    - hydra
+    - hydra-gtk
+    - john
+    - medusa
+    - ncrack
+    - ophcrack
+    - wordlists
+    - netexec
+
+- Category: Discovery
+# Gain knowledge about the system and internal network
+  Name: 09 - Discovery
+  Name[es]: 09 - Descubrimiento
+  Name[fr]: 09 - Découverte
+  Name[de]: 09 - Entdeckung
+  Name[pt]: 09 - Descoberta
+  Name[zh_CN]: 09 - 发现
+  Include:
+    - Category: Network Service Discovery # T1046
+      Name: • Network Service Discovery
+      Name[es]: • Descubrimiento de Servicios de Red
+      Name[fr]: • Découverte de Services Réseau
+      Name[de]: • Netzwerkdienst-Erkennung
+      Name[pt]: • Descoberta de Serviços de Rede
+      Name[zh_CN]: • 网络服务发现
+      Include:
+        - amass
+        - autorecon
+        - masscan
+        - nmap
+        - zenmap
+        - rustscan
+        - sctpscan
+        - unicornscan
+        - ike-scan
+    - Category: SSL / TLS # Network Service Discovery - T1046
+      Name: • SSL / TLS
+      Name[es]: • SSL / TLS
+      Name[fr]: • SSL / TLS
+      Name[de]: • SSL / TLS
+      Name[pt]: • SSL / TLS
+      Name[zh_CN]: • SSL / TLS
+      Include:
+        - sslscan
+        - sslyze
+        - tlssled
+    - Category: SNMP # Network Service Discovery - T1046
+      Name: • SNMP
+      Name[es]: • SNMP
+      Name[fr]: • SNMP
+      Name[de]: • SNMP
+      Name[pt]: • SNMP
+      Name[zh_CN]: • SNMP
+      Include:
+        - snmp-check
+        - braa
+        - onesixtyone
+    - Category: Network Sniffing # T1040
+      Name: • Network Sniffing
+      Name[es]: • Sniffing de Red
+      Name[fr]: • Sniffing de Réseau
+      Name[de]: • Netzwerk-Sniffing
+      Name[pt]: • Sniffing de Rede
+      Name[zh_CN]: • 网络嗅探
+      Include:
+        - above
+        - arpspoof
+        - darkstat
+        - dnschef
+        - driftnet
+        - dsniff
+        - hexinject
+        - netsniff-ng
+        - org.wireshark.Wireshark
+        - scapy
+        - tcpdump
+        - tcpflow
+    - Category: Remote System Discovery # T1018
+      Name: • Remote System Discovery
+      Name[es]: • Descubrimiento de Sistemas Remotos
+      Name[fr]: • Découverte de Systèmes à Distance
+      Name[de]: • Fernsystem-Erkennung
+      Name[pt]: • Descoberta de Sistema Remotos
+      Name[zh_CN]: • 远程系统发现
+      Include:
+        - arping
+        - arpwatch
+        - atk6-thcping6
+        - fierce
+        - fping
+        - hping3
+        - iputils-arping
+        - p0f
+    - Category: Account Discovery # T1087
+      Name: • Account Discovery
+      Name[es]: • Descubrimiento de Cuentas
+      Name[fr]: • Découverte de Comptes
+      Name[de]: • Kontenerkennung
+      Name[pt]: • Descoberta de Contas
+      Name[zh_CN]: • 账户发现
+      Include:
+        - apache-users
+        - smtp-user-enum
+    - Category: Network Share Discovery # T1135
+      Name: • Network Share Discovery
+      Name[es]: • Descubrimiento de Recursos Compartidos en Red
+      Name[fr]: • Découverte de Partages Réseau
+      Name[de]: • Erkennung von Netzwerkfreigaben
+      Name[pt]: • Descoberta de Compartilhamentos de Rede
+      Name[zh_CN]: • 网络共享发现
+      Include:
+        - crackmapexec
+        - enum4linux
+        - enum4linux-ng
+        - nbtscan
+        - netexec
+        - smbclient
+        - smbmap
+        - snaffler
+    - Category: Process Discovery # T1057
+      Name: • Process Discovery
+      Name[es]: • Descubrimiento de Procesos
+      Name[fr]: • Découverte des Processus
+      Name[de]: • Prozesserkennung
+      Name[pt]: • Descoberta de Processos
+      Name[zh_CN]: • 进程发现
+      Include:
+        - pspy
+        - pspy-binaries
+    - Category: System Network Configuration Discovery # T1016
+      Name: • System Network Configuration Discovery
+      Name[es]: • Descubrimiento de Configuración de Red del Sistema
+      Name[fr]: • Découverte de la Configuration Réseau Système
+      Name[de]: • Systemnetzwerkkonfigurationserkennung
+      Name[pt]: • Descoberta da Configuração de Rede do Sistema
+      Name[zh_CN]: • 系统网络配置发现
+      Include:
+        - 0trace.sh
+        - ass
+        - cdp
+        - intrace
+        - netdiscover
+        - netmask
+        - sara
+        - yersinia
+    - Category: Network Security Appliances # T1590.006
+      Name: • Network Security Appliances
+      Name[es]: • Dispositivos de Seguridad de Red
+      Name[fr]: • Appareils de Sécurité Réseau
+      Name[de]: • Netzwerksicherheitsgeräte
+      Name[pt]: • Dispositivos de Segurança de Rede
+      Name[zh_CN]: • 网络安全设备
+      Include:
+        - firewalk
+        - tcpreplay
+        - wafw00f
+    - Category: Databases
+      Name: • Databases
+      Name[es]: • Bases de Datos
+      Name[fr]: • Bases de Données
+      Name[de]: • Datenbanken
+      Name[pt]: • Bancos de dados
+      Name[zh_CN]: • 数据库
+      Include:
+        - impacket-mssqlclient
+        - mdb-sql
+        - mysql
+        - oscanner
+        - sidguess
+        - sqlitebrowser
+        - tnscmd10g
+    - Category: SMTP
+      Name: • SMTP
+      Name[es]: • SMTP
+      Name[fr]: • SMTP
+      Name[de]: • SMTP
+      Name[pt]: • SMTP
+      Name[zh_CN]: • SMTP
+      Include:
+        - mxcheck
+        - smtp-user-enum
+        - swaks
+    - Category: Cisco Tools
+      Name: • Cisco Tools
+      Name[es]: • Herramientas Cisco
+      Name[fr]: • Outils Cisco
+      Name[de]: • Cisco-Werkzeuge
+      Name[pt]: • Ferramentas Cisco
+      Name[zh_CN]: • Cisco 工具
+      Include:
+        - cge.pl
+        - cisco-ocs
+        - cisco-torch
+        - copy-router-config.pl
+        - merge-router-config.pl
+    - Category: Active Directory
+    # Permission Groups Discovery: Domain Groups - T1069/002
+    # Account Discovery: Domain Account - T1087/002
+      Name: • Active Directory
+      Name[es]: • Active Directory
+      Name[fr]: • Active Directory
+      Name[de]: • Active Directory
+      Name[pt]: • Active Directory
+      Name[zh_CN]: • Active Directory
+      Include:
+        - azurehound
+        - bloodhound-start
+        - bloodhound-python
+        - bloodhound-ce-python
+        - ldeep
+        - sharphound
+    - Category: VoIP
+      Name: • VoIP
+      Name[es]: • VoIP
+      Name[fr]: • VoIP
+      Name[de]: • VoIP
+      Name[pt]: • VoIP
+      Name[zh_CN]: • VoIP
+      Include:
+        - protos-sip
+        - rtpbreak
+        - rtpinsertsound
+        - rtpmixsound
+        - siparmyknife
+        - sipp
+        - sippts
+        - sipsak
+        - svcrash
+        - svmap
+        - svreport
+        - svwar
+        - voiphopper
+        - ohrwurm
+    # Featured Tools
+    - amass
+    - bloodhound-start
+    - masscan
+    - nmap
+    - zenmap
+    - org.wireshark.Wireshark
+    - tcpdump
+    - hping3
+    - arping
+    - fierce
+    - enum4linux
+    - netdiscover
+
+- Category: Lateral Movement
+# Move through the environment
+  Name: 10 - Lateral Movement
+  Name[es]: 10 - Movimiento Lateral
+  Name[fr]: 10 - Mouvement Latéral
+  Name[de]: 10 - Laterale Bewegung
+  Name[pt]: 10 - Movimento Lateral
+  Name[zh_CN]: 10 - 横向移动
+  Include:
+    - *passing-the-hash
+    - crackmapexec
+    - evil-winrm
+    - impacket-smbexec
+    - impacket-psexec
+    - netexec
+    # T1021/001 - Remote Services: Remote Desktop Protocol
+    - xfreerdp3
+    - rdesktop
+
+- Category: Collection
+# Gather information to follow the adversary's objectives
+  Name: 11 - Collection
+  Name[es]: 11 - Recopilación
+  Name[fr]: 11 - Collecte
+  Name[de]: 11 - Sammlung
+  Name[pt]: 11 - Coleta
+  Name[zh_CN]: 11 - 收集
+  Include:
+    # T1119 - Automated Collection
+    - httrack
+    # T1557 - Adversary-in-the-Middle
+    - ettercap-text-only
+    - ettercap
+    - evilginx2
+    - fiked
+    - fluxion
+    - mitmproxy
+    - mitm6
+    - ssldump
+    - sslsplit
+    - sslsniff
+    - wifipumpkin3
+    # T1185 - Browser Session Hijacking
+    - ferret-sidejack
+    - hamster-sidejack
+    # T1602 - Data from Configuration Repository
+    - copy-router-config.pl
+    - merge-router-config.pl
+
+- Category: Command and Control
+# Communicate with systems under their control within a victim network
+  Name: 12 - Command and Control
+  Name[es]: 12 - Comando y Control
+  Name[fr]: 12 - Commandement et Contrôle
+  Name[de]: 12 - Befehl und Kontrolle
+  Name[pt]: 12 - Comando e Controle
+  Name[zh_CN]: 12 - 指挥控制
+  Include:
+    - Category: Application Layer Protocol # T1071
+      Name: • Application Layer Protocol
+      Name[es]: • Protocolo de Capa de Aplicación
+      Name[fr]: • Protocole de Couche Application
+      Name[de]: • Anwendungsschicht-Protokoll
+      Name[pt]: • Protocolo de Camada de Aplicação
+      Name[zh_CN]: • 应用层协议
+      Include:
+        - cadaver
+        - crackmapexec
+        - evil-winrm
+        - impacket-scripts
+        - minicom
+        - netexec
+        - smbclient
+        - xfreerdp3
+    - Category: Non-Application Layer Protocol # T1095
+      Name: • Non-Application Layer Protocol
+      Name[es]: • Protocolo fuera de Capa de Aplicación
+      Name[fr]: • Protocole Non-Couche Application
+      Name[de]: • Nicht-Anwendungsschicht-Protokoll
+      Name[pt]: • Protocolo fora da camada de aplicação
+      Name[zh_CN]: • 非应用层协议
+      Include:
+        - dbd
+        - ncat
+        - netcat
+        - penelope
+        - powercat
+        - sbd
+        - socat
+        - termineter
+    - Category: Protocol Tunneling # T1572
+      Name: • Protocol Tunneling
+      Name[es]: • Tunelización de protocolos
+      Name[fr]: • Tunneling de Protocole
+      Name[de]: • Protokoll-Tunneling
+      Name[pt]: • Tunelamento de protocolo
+      Name[zh_CN]: • 协议隧道
+      Include:
+        - chisel
+        - chisel-common-binaries
+        - dns2tcpc
+        - dns2tcpd
+        - dnscat
+        - iodine-client-start
+        - ligolo-agent
+        - ligolo-proxy
+        - ligolo-mp
+        - ligolo-mp-client
+        - ligolo-ng-common-binaries
+        - miredo
+        - proxychains4
+        - proxytunnel
+        - ptunnel
+        - pwnat
+        - sshuttle
+        - sslh
+        - stunnel4
+        - udptunnel
+    # C2 frameworks
+    - adaptixclient
+    - adaptixserver
+    - armitage
+    - havoc
+    - hoaxshell
+    - koadic
+    - metasploit-framework
+    - powershell-empire
+    - starkiller-start
+    - villain
+
+- Category: Exfiltration
+# Steal data from target network
+  Name: 13 - Exfiltration
+  Name[es]: 13 - Exfiltración
+  Name[fr]: 13 - Exfiltration
+  Name[de]: 13 - Exfiltration
+  Name[pt]: 13 - Exfiltração
+  Name[zh_CN]: 13 - 渗漏
+  Include:
+    - netcat
+    - impacket-smbserver    
+    # T1567 - Exfiltration Over Web Service
+    - goshs
+    - raven
+
+- Category: Impact
+# Disrupt, compromise, destroy, and manipulate the integrity and availability of
+# control system operations, processes, devices, and data
+  Name: 14 - Impact
+  Name[es]: 14 - Impacto
+  Name[fr]: 14 - Impact
+  Name[de]: 14 - Auswirkung
+  Name[pt]: 14 - Impacto
+  Name[zh_CN]: 14 - 影响
+  Include:
+    # T1498 - Network Denial of Service
+    - dhcpig
+    - goldeneye
+    - iaxflood
+    - inviteflood
+    - mdk3
+    - rtpflood
+    - siege
+    - slowhttptest
+    - t50
+    - thc-ssl-dos
+    # T1565/002 - Transmitted Data Manipulation
+    - scapy
+
+- Category: Forensics
+  Name: 15 - Forensics
+  Name[es]: 15 - Análisis forense
+  Name[fr]: 15 - Criminalistique
+  Name[de]: 15 - Forensik
+  Name[pt]: 15 - Análise forense
+  Name[zh_CN]: 15 - 数字取证
+  Include:
+    - Category: Digital Forensics
+      Name: • Digital Forensics
+      Name[es]: • Análisis forense digital
+      Name[fr]: • Criminalistique Numérique
+      Name[de]: • Digitale Forensik
+      Name[pt]: • Análise forense digital
+      Name[zh_CN]: • 数字取证
+      Include:
+        - dc3dd
+        - dcfldd
+        - io.github.horsicq.detect-it-easy
+        - hexwalk
+        - missidentify
+        - readpst
+        - reglookup
+        - regripper
+        - undbx
+        - vinetto
+    - Category: Forensic Carving Tools
+      Name: • Forensic Carving Tools
+      Name[es]: • Herramientas Forenses de Recuperación
+      Name[fr]: • Outils de Récupération Criminalistique
+      Name[de]: "• Forensik: Extraktions-Tools"
+      Name[pt]: • Ferramentas Forenses de Recuperação
+      Name[zh_CN]: • 取证分割工具集
+      Include:
+        - ext3grep
+        - ext4magic
+        - extundelete
+        - foremost
+        - magicrescue
+        - myrescue
+        - pasco
+        - photorec
+        - readpe
+        - recoverdm
+        - recoverjpeg
+        - rifiuti
+        - rifiuti2
+        - safecopy
+        - scalpel
+        - scrounge-ntfs
+        - testdisk
+    - Category: Forensic Imaging Tools
+      Name: • Forensic Imaging Tools
+      Name[es]: • Herramientas Forenses para Imágenes
+      Name[fr]: • Outils d’Imagerie Criminalistique
+      Name[de]: "• Forensik: Abbild-Tools"
+      Name[pt]: • Ferramentas Forenses para Imagens
+      Name[zh_CN]: • 取证镜像工具集
+      Include:
+        - affcat
+        - dc3dd
+        - dcfldd
+        - dd_rescue
+        - ewfacquire
+        - guymager
+    - Category: PDF Forensics Tools
+      Name: • PDF Forensics Tools
+      Name[es]: • Herramientas Forenses para PDF
+      Name[fr]: • Outils de Criminalistique PDF
+      Name[de]: • PDF-Forensik
+      Name[pt]: • Ferramentas Forenses para PDF
+      Name[zh_CN]: • PDF取证工具集
+      Include:
+        - pdfid
+        - pdf-parser
+    - Category: Sleuth Kit Suite
+      Name: • Sleuth Kit Suite
+      Name[es]: • Kits de forensia
+      Name[fr]: • Suites Criminalistique
+      Name[de]: • Forensik-Werkzeugsammlungen
+      Name[pt]: • Kits forenses
+      Name[zh_CN]: • 数字取证套件
+      Include:
+        - autopsy
+        - blkcalc
+        - blkcat
+        - blkls
+        - blkstat
+        - ffind
+        - fls
+        - fsstat
+        - grokevt-addlog
+        - grokevt-builddb
+        - grokevt-findlogs
+        - grokevt-parselog
+        - grokevt-ripdll
+        - hfind
+        - icat
+        - ifind
+        - ils
+        - img_cat
+        - img_stat
+        - istat
+        - jcat
+        - jls
+        - mactime
+        - mmcat
+        - mmls
+        - mmstat
+        - sigfind
+        - sorter
+        - srch_strings
+        - tsk_comparedir
+        - tsk_gettimes
+        - tsk_loaddb
+        - tsk_recover
+    - autopsy
+    - binwalk
+    - binwalk3
+    - bulk_extractor
+    - chkrootkit
+    - foremost
+    - galleta
+    - hashdeep
+    - rkhunter
+    - ssdeep
+    - unhide
+    - xplico-webui-start
+    - yara
+
+- Category: Services and Other Tools
+  Name: 16 - Services and Other Tools
+  Name[es]: 16 - Servicios y Otras Herramientas
+  Name[fr]: 16 - Services et Autres Outils
+  Name[de]: 16 - Dienste und Andere Werkzeuge
+  Name[pt]: 16 - Serviços e Outras Ferramentas
+  Name[zh_CN]: 16 - 服务和其他工具
+  Include:
+    - Category: Reporting Tools
+      Name: • Reporting Tools
+      Name[es]: • Herramientas de Reporte
+      Name[fr]: • Outils de Rapport
+      Name[de]: • Berichtswerkzeuge
+      Name[pt]: • Ferramentas de Reporte
+      Name[zh_CN]: • 报告工具
+      Include:
+        - cherrytree
+        - dradis-start
+        - faraday-start
+        - maltego
+        - maltego-installer
+        - obsidian
+        - pipal
+        - recordmydesktop
+        - redeye-start
+        # Web screenshot
+        - cutycapt
+        - eyewitness
+        - witnessme
+    - Category: Laboratories
+      Name: • Laboratories
+      Name[es]: • Laboratorios
+      Name[fr]: • Laboratoires
+      Name[de]: • Labore
+      Name[pt]: • Laboratórios
+      Name[zh_CN]: • 实验室
+      Include:
+        - juice-shop-start
+        - dvwa-start
+    - Category: System Services
+      Name: • System Services
+      Name[es]: • Servicios del Sistema
+      Name[fr]: • Services Système
+      Name[de]: • Systemdienste
+      Name[pt]: • Serviços do Sistema
+      Name[zh_CN]: • 系统服务
+      Include:
+        - beef-xss-start
+        - beef-xss-stop
+        - bloodhound-start
+        - bloodhound-stop
+        - defectdojo-start
+        - defectdojo-stop
+        - dradis-start
+        - dradis-stop
+        - dvwa-start
+        - dvwa-stop
+        - faraday-start
+        - faraday-stop
+        - gophish-start
+        - gophish-stop
+        - gvm-check-setup
+        - gvm-setup
+        - gvm-start
+        - gvm-stop
+        - juice-shop-start
+        - juice-shop-stop
+        - portspoof-start
+        - portspoof-stop
+        - redeye-start
+        - redeye-stop
+        - starkiller-start
+        - starkiller-stop
+        - thehive-start
+        - thehive-stop
+        - xplico-webui-start
+        - xplico-webui-stop
+    - Category: Kali & OffSec Links
+      Name: • Kali & OffSec Links
+      Include:
+        - exploit-database
+        - kali-bugs
+        - kali-docs
+        - kali-forums
+        - kali-nethunter
+        - kali-tools
+        - kali-www
+        - offsec-training
+        - vulnhub
+    # Utils
+    - arsenal-ng
+    - code-oss
+    - gemini-cli
+    - hexstrike_server
+    - kali-tweaks
+    - pwsh
+    - root-terminal
+    - snapper-gui
+    - shell-gpt
+    - tailscale

@@ -1,0 +1,274 @@
+================================================================================
+TIMESTAMP: 2026-09-24T20:28:47.658972 | STATUS: ENVIANDO_PROMPT... | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1
+-------------------------------- [PROMPT ENVIADO] ------------------------------
+[SYSTEM]:
+Você é um especialista tático em segurança ofensiva e orquestração de testes de penetração.
+
+[USER]:
+Você é o estrategista de pentest do Ruadan integrado com red-MPPO.
+O modelo de Reinforcement Learning (.pt) selecionou a seguinte ação da Kill Chain:
+  - Ação: EXPLOIT_REMOTE (ID: 3)
+  - Alvo: juice.octopux
+
+Topologia e serviços identificados até o momento:
+[
+  {
+    "id": 0,
+    "ip": "192.168.50.160",
+    "status": 1,
+    "services": [
+      "0",
+      "123",
+      "137",
+      "138",
+      "161",
+      "162",
+      "22",
+      "80",
+      "443"
+    ]
+  }
+]
+
+Forneça uma análise tática sucinta em formato JSON:
+{
+  "rationale": "<justificativa técnica objetiva em 1-2 frases>",
+  "tool_focus": ["<ferramentas mais relevantes do arsenal para esta fase>"],
+  "risk_assessment": "<baixo | médio | alto>"
+}
+------------------------------- [STATUS DO MODELO] ----------------------------
+[*] Requisição enviada. Aguardando geração de resposta pelo modelo qwen3:8b...
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:30:38.056237 | STATUS: SUCCESS | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1 | LATÊNCIA: 110415ms
+------------------------------- [RESPOSTA RECEBIDA] ----------------------------
+{
+  "rationale": "A ação EXPLOIT_REMOTE visa explorar vulnerabilidades em serviços expostos (como SSH, HTTP/HTTPS) para obter acesso remoto, priorizando alvos com múltiplas interfaces e protocolos suscetíveis a exploits conhecidos.",
+  "tool_focus": ["nmap", "ncrack", "hydra", "metasploit", "curl"],
+  "risk_assessment": "alto"
+}
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:48:14.085697 | STATUS: ENVIANDO_PROMPT... | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1
+-------------------------------- [PROMPT ENVIADO] ------------------------------
+[SYSTEM]:
+Você é um especialista tático em segurança ofensiva e orquestração de testes de penetração.
+
+[USER]:
+Você é o estrategista de pentest do Ruadan integrado com red-MPPO.
+O modelo de Reinforcement Learning (.pt) selecionou a seguinte ação da Kill Chain:
+  - Ação: PRIVILEGE_ESCALATE (ID: 4)
+  - Alvo: juice.octopux
+
+Topologia e serviços identificados até o momento:
+[
+  {
+    "id": 0,
+    "ip": "192.168.50.160",
+    "status": 2,
+    "services": [
+      "0",
+      "123",
+      "137",
+      "138",
+      "161",
+      "162",
+      "22",
+      "80",
+      "443",
+      "-1"
+    ]
+  }
+]
+
+Forneça uma análise tática sucinta em formato JSON:
+{
+  "rationale": "<justificativa técnica objetiva em 1-2 frases>",
+  "tool_focus": ["<ferramentas mais relevantes do arsenal para esta fase>"],
+  "risk_assessment": "<baixo | médio | alto>"
+}
+------------------------------- [STATUS DO MODELO] ----------------------------
+[*] Requisição enviada. Aguardando geração de resposta pelo modelo qwen3:8b...
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:50:13.459609 | STATUS: SUCCESS | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1 | LATÊNCIA: 119382ms
+------------------------------- [RESPOSTA RECEBIDA] ----------------------------
+{
+  "rationale": "A escalada de privilégios é a etapa lógica após a inicialização de uma sessão de acesso remoto, especialmente em sistemas com serviços como SSH e web servers, onde vulnerabilidades de configuração ou exploits de kernel podem ser exploradas.",
+  "tool_focus": ["Metasploit", "Empire", "Cobalt Strike", "LinEnum", "Checksec"],
+  "risk_assessment": "médio"
+}
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:50:20.907069 | STATUS: ENVIANDO_PROMPT... | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1
+-------------------------------- [PROMPT ENVIADO] ------------------------------
+[SYSTEM]:
+Você é um especialista tático em segurança ofensiva e orquestração de testes de penetração.
+
+[USER]:
+Você é o estrategista de pentest do Ruadan integrado com red-MPPO.
+O modelo de Reinforcement Learning (.pt) selecionou a seguinte ação da Kill Chain:
+  - Ação: PERSIST_BACKDOOR (ID: 6)
+  - Alvo: juice.octopux
+
+Topologia e serviços identificados até o momento:
+[
+  {
+    "id": 0,
+    "ip": "192.168.50.160",
+    "status": 3,
+    "services": [
+      "0",
+      "123",
+      "137",
+      "138",
+      "161",
+      "162",
+      "22",
+      "80",
+      "443",
+      "-1"
+    ]
+  }
+]
+
+Forneça uma análise tática sucinta em formato JSON:
+{
+  "rationale": "<justificativa técnica objetiva em 1-2 frases>",
+  "tool_focus": ["<ferramentas mais relevantes do arsenal para esta fase>"],
+  "risk_assessment": "<baixo | médio | alto>"
+}
+------------------------------- [STATUS DO MODELO] ----------------------------
+[*] Requisição enviada. Aguardando geração de resposta pelo modelo qwen3:8b...
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:51:56.950056 | STATUS: SUCCESS | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1 | LATÊNCIA: 96051ms
+------------------------------- [RESPOSTA RECEBIDA] ----------------------------
+{
+  "rationale": "A ação PERSIST_BACKDOOR visa estabelecer persistência no alvo juice.octopux, aproveitando serviços como SSH (22) e HTTP (80/443) para implantar mecanismos de reinício automático de acesso, garantindo presença contínua mesmo após rebootes ou interrupções.",
+  "tool_focus": ["Metasploit Persistence Module", "SSH Backdoor (e.g., reverse shell)", "Web Shell (se houver servidor web ativo)"],
+  "risk_assessment": "médio"
+}
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:52:17.912208 | STATUS: ENVIANDO_PROMPT... | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1
+-------------------------------- [PROMPT ENVIADO] ------------------------------
+[SYSTEM]:
+Você é um especialista tático em segurança ofensiva e orquestração de testes de penetração.
+
+[USER]:
+Você é o estrategista de pentest do Ruadan integrado com red-MPPO.
+O modelo de Reinforcement Learning (.pt) selecionou a seguinte ação da Kill Chain:
+  - Ação: C2_ESTABLISH (ID: 8)
+  - Alvo: juice.octopux
+
+Topologia e serviços identificados até o momento:
+[
+  {
+    "id": 0,
+    "ip": "192.168.50.160",
+    "status": 4,
+    "services": [
+      "0",
+      "123",
+      "137",
+      "138",
+      "161",
+      "162",
+      "22",
+      "80",
+      "443",
+      "-1"
+    ]
+  }
+]
+
+Forneça uma análise tática sucinta em formato JSON:
+{
+  "rationale": "<justificativa técnica objetiva em 1-2 frases>",
+  "tool_focus": ["<ferramentas mais relevantes do arsenal para esta fase>"],
+  "risk_assessment": "<baixo | médio | alto>"
+}
+------------------------------- [STATUS DO MODELO] ----------------------------
+[*] Requisição enviada. Aguardando geração de resposta pelo modelo qwen3:8b...
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:55:06.512180 | STATUS: SUCCESS | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1 | LATÊNCIA: 168608ms
+------------------------------- [RESPOSTA RECEBIDA] ----------------------------
+{
+  "rationale": "A ação C2_ESTABLISH visa estabelecer comunicação com a vítima 'juice.octopux' utilizando serviços como SSH (22), HTTP/HTTPS (80/443) e SNMP (161/162), que são comuns em ambientes corporativos e podem ser usados para tunelamento ou exfiltração de dados.",
+  "tool_focus": ["Cobalt Strike", "Metasploit", "Nmap", "PowerShell"],
+  "risk_assessment": "alto"
+}
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:55:35.909410 | STATUS: ENVIANDO_PROMPT... | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1
+-------------------------------- [PROMPT ENVIADO] ------------------------------
+[SYSTEM]:
+Você é um especialista tático em segurança ofensiva e orquestração de testes de penetração.
+
+[USER]:
+Você é o estrategista de pentest do Ruadan integrado com red-MPPO.
+O modelo de Reinforcement Learning (.pt) selecionou a seguinte ação da Kill Chain:
+  - Ação: EXFILTRATE (ID: 7)
+  - Alvo: juice.octopux
+
+Topologia e serviços identificados até o momento:
+[
+  {
+    "id": 0,
+    "ip": "192.168.50.160",
+    "status": 4,
+    "services": [
+      "0",
+      "123",
+      "137",
+      "138",
+      "161",
+      "162",
+      "22",
+      "80",
+      "443",
+      "-1"
+    ]
+  }
+]
+
+Forneça uma análise tática sucinta em formato JSON:
+{
+  "rationale": "<justificativa técnica objetiva em 1-2 frases>",
+  "tool_focus": ["<ferramentas mais relevantes do arsenal para esta fase>"],
+  "risk_assessment": "<baixo | médio | alto>"
+}
+------------------------------- [STATUS DO MODELO] ----------------------------
+[*] Requisição enviada. Aguardando geração de resposta pelo modelo qwen3:8b...
+================================================================================
+
+================================================================================
+TIMESTAMP: 2026-09-24T20:58:07.405789 | STATUS: SUCCESS | PROVEDOR: ollama | MODELO: qwen3:8b
+ENDPOINT:  http://localhost:11434/v1 | LATÊNCIA: 151505ms
+------------------------------- [RESPOSTA RECEBIDA] ----------------------------
+{
+  "rationale": "A exfiltração é a fase final da cadeia de ataque, onde dados são extraídos do alvo. Os serviços abertos (HTTP/HTTPS, SSH) permitem canais de comunicação para transferir dados de forma discreta.",
+  "tool_focus": ["curl", "wget", "netcat", "dns2tcp"],
+  "risk_assessment": "alto"
+}
+================================================================================
+

@@ -1,0 +1,5 @@
+MSF_SESSION_OPENED: sid=1 tipo=meterpreter peer=192.168.50.210:56216 via=exploit/multi/handler (00:25:47)
+MSF_SYSINFO: sid=1 | Computer     : Lazarus | OS           : Debian  (Linux 6.1.0-35-amd64) | Architecture : x64 | BuildTuple   : x86_64-linux-musl
+MSF_GETUID: sid=1 | Server username: root
+MSF_ROOT_CONFIRMED: sid=1 | Server username: root — ROOT REAL OBTIDO
+[msf-rpc] Evidência estruturada: /ruadan/output/juice_octopux/msf_c2_evidence.json

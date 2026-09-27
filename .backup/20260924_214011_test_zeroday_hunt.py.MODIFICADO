@@ -1,0 +1,516 @@
+"""Testes do CACADOR AUTONOMO de 0-day (zeroday_hunt + hunt_suite).
+
+Cenario: servidores vulneraveis LOCAIS (127.0.0.1) montados na hora —
+o cacador (sem LLM) tem que ACHAR as falhas com a bateria generica:
+  - reflexao de token canario (GET)          -> confirmed
+  - traversal com assinatura /etc/passwd     -> confirmed
+  - catch-all (200 para rota aleatoria)      -> suspect (anomalia, sem prova)
+  - Redis sem auth (PING/INFO em porta nao-padrao, via BANNER) -> confirmed
+  - MQTT aceitando CONNECT sem credencial    -> confirmed
+E as barreiras de honestidade:
+  - verdict confirmed do LLM so sobrevive com ARQUIVO de evidencia
+  - audit_hunt reprova confirmed com evidencia inexistente
+  - run sintetica do hunter passa em audit_run (harness) + audit_hunt
+"""
+from __future__ import annotations
+
+import http.server
+import socket
+import threading
+from pathlib import Path
+
+import pytest
+
+from services.pentest.app.inventory import Inventory, SshCred
+from services.pentest.app.safety import SafetyGate
+from services.pentest.app.session import ChannelPool
+from services.pentest.app.state import PentestState
+from services.pentest.app.tools import ToolBox
+from services.pentest.app.zeroday_hunt import (HuntConfig, ZeroDayHunter,
+                                               _parse_hunt_final, audit_hunt)
+
+_PASSWD_FAKE = ("root:x:0:0:root:/root:/bin/bash\n"
+                "daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n")
+
+
+def _inv_local() -> Inventory:
+    return Inventory(
+        authorization_owner="tester",
+        allowed_cidrs=["127.0.0.0/8"],
+        seed_host_ip="127.0.0.1",
+        ssh_creds=[SshCred(username="ubuntu", password="ubuntu")])
+
+
+# ------------------------------------------------------------ servidores web
+_STACK_REAL = ("Traceback (most recent call last):\n"
+               '  File "/app/main.py", line 42, in handler\n'
+               "    json.loads(body)\n"
+               "json.decoder.JSONDecodeError: Expecting value\n")
+
+_GERAIS = {
+    "root": b"<html>app de teste</html>",
+    "spa": b"<html>pagina generica do app</html>",
+}
+
+
+class _HandlerVuln(http.server.BaseHTTPRequestHandler):
+    """Servidor de teste configuravel por flags de classe:
+    reflect/traversal/echo_post (vulns da bateria), catchall (SPA que serve
+    a mesma pagina para tudo), distinct (catch-all com corpo distinto por
+    rota), leak real/generic, trace/put (metodos), root_ok (raiz 200 com
+    /admin 404 — caso de header sem efeito), hx (header com efeito)."""
+    catchall = False
+    distinct = False
+    reflect = True
+    echo_post = True
+    traversal = True
+    root_ok = False
+    leak = None          # None | "real" | "generic"
+    trace = False
+    put = False
+    announce = "GET, POST, OPTIONS"
+    hx = False
+    files: dict = {}
+
+    def log_message(self, *a):  # silencia o console do pytest
+        pass
+
+    def _servir(self, corpo: bytes, status: int = 200) -> None:
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(corpo)))
+        self.send_header("Server", "TestVuln/0.9")
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def _corpo_get(self) -> tuple[bytes, int]:
+        path = self.path
+        if self.traversal and ("etc%2fpasswd" in path or "../" in path):
+            return _PASSWD_FAKE.encode(), 200
+        if "pentest_canary=" in path and self.reflect:
+            return f"<html>eco: {path}</html>".encode(), 200
+        if self.hx and self.headers.get("X-Original-URL") == "/admin":
+            return b"<html>PAINEL ADMIN SECRETO</html>", 200
+        if self.root_ok and path == "/":
+            return _GERAIS["root"], 200
+        if self.path in self.files:  # PUT roundtrip
+            return self.files[self.path], 200
+        if self.catchall:
+            return _GERAIS["spa"], 200
+        if self.distinct:
+            # corpo estavel por rota, SEM ecoar o path (nao reflete token)
+            return f"pagina #{abs(hash(path)) % 97}".encode(), 200
+        return b"not found", 404
+
+    def do_GET(self):
+        corpo, status = self._corpo_get()
+        self._servir(corpo, status)
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        corpo = self.rfile.read(n)
+        if self.leak and b"incompleto" in corpo:
+            if self.leak == "real":
+                self._servir(_STACK_REAL.encode(), 500)
+            else:
+                self._servir(b'{"error": "An Exception occurred"}', 500)
+            return
+        if not self.echo_post:
+            self._servir(b"not found", 404)
+            return
+        self._servir(b"eco POST: " + corpo)
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Allow", self.announce)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_TRACE(self):
+        if self.trace:
+            self._servir(f"TRACE {self.path} HTTP/1.1\r\nHost: x\r\n"
+                         f"X-Pentest-Canary: "
+                         f"{self.headers.get('X-Pentest-Canary', '')}"
+                         .encode())
+        else:
+            self._servir(b"not allowed", 405)
+
+    def do_PUT(self):
+        if not self.put:
+            self._servir(b"not allowed", 405)
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        self.files[self.path] = self.rfile.read(n)
+        self._servir(b"created", 201)
+
+    def do_DELETE(self):
+        if self.files.pop(self.path, None) is not None:
+            self._servir(b"deleted", 200)
+        else:
+            self._servir(b"not found", 404)
+
+
+def _servidor_web(**flags):
+    bases = {"catchall": False, "distinct": False, "reflect": True,
+             "echo_post": True, "traversal": True, "root_ok": False,
+             "leak": None, "trace": False, "put": False,
+             "announce": "GET, POST, OPTIONS", "hx": False, "files": {}}
+    bases.update(flags)
+    cls = type("H", (_HandlerVuln,), bases)
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), cls)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    return srv
+
+
+# ----------------------------------------------------------- servidores TCP
+def _servidor_tcp(responder, porta: int = 0):
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", porta))
+    srv.listen(8)
+    porta = srv.getsockname()[1]
+
+    def loop():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            conn.settimeout(3)
+            try:
+                dados = b""
+                while True:
+                    pedaco = conn.recv(4096)
+                    if not pedaco:
+                        break
+                    dados += pedaco
+                    resp = responder(dados)
+                    if resp:
+                        conn.sendall(resp)
+                    if b"INFO" in dados or b"\x10" in dados[:1]:
+                        break
+            except OSError:
+                pass
+            finally:
+                conn.close()
+
+    threading.Thread(target=loop, daemon=True).start()
+    return srv, porta
+
+
+# ------------------------------------------------------------------ toolbox
+def _hunter(tmp_path: Path, use_llm: bool = False) -> ZeroDayHunter:
+    inv = _inv_local()
+    hunter = ZeroDayHunter.__new__(ZeroDayHunter)
+    hunter.inv = inv
+    hunter.cfg = HuntConfig(use_llm=use_llm)
+    hunter.dry_run = False
+    hunter.run_dir = tmp_path / "run"
+    hunter.run_dir.mkdir(parents=True, exist_ok=True)
+    (hunter.run_dir / "evidence").mkdir(exist_ok=True)
+    (hunter.run_dir / "llm_transcripts").mkdir(exist_ok=True)
+    hunter.safety = SafetyGate(inv, authorized_flag=True)
+    hunter.channels = ChannelPool(inv)
+    hunter.state = PentestState(max_steps=100)
+    hunter.state.add_host("127.0.0.1")
+    hunter.tb = ToolBox(hunter.state, inv, hunter.safety, hunter.channels,
+                        evidence_root=hunter.run_dir / "evidence",
+                        dry_run=False)
+    hunter.orch = None
+    hunter.events = []
+    hunter.hosts = []
+    hunter._step = 0
+    # rev13: estado novo do hunter (bypass __new__ precisa instancia-lo)
+    hunter._terminated = False
+    hunter._exploit_cache = {}
+    hunter._host_deadline = None
+    hunter.hosts_nao_cobertos = []
+    return hunter
+
+
+# ------------------------------------------------------- bateria HTTP (suite)
+def test_suite_http_reflexao_e_traversal_confirmadas(tmp_path):
+    from services.pentest.app.hunt_suite import hunt_suite_http
+    srv = _servidor_web(catchall=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        r = hunt_suite_http(tb, "127.0.0.1", srv.server_address[1])
+    finally:
+        srv.shutdown()
+    classes = {f["class"]: f for f in r["findings"]}
+    assert classes["reflection"]["verdict"] == "confirmed"
+    assert classes["reflection"]["verification"] == "reflection_token"
+    assert classes["traversal"]["verdict"] == "confirmed"
+    assert classes["traversal"]["verification"] == "passwd_signature"
+    for f in r["findings"]:
+        p = tb.evidence_root.parent / f["evidence"]
+        assert p.exists(), f"evidencia sem arquivo: {f['evidence']}"
+
+
+def test_suite_http_catchall_e_suspect_nao_confirmed(tmp_path):
+    from services.pentest.app.hunt_suite import hunt_suite_http
+    srv = _servidor_web(catchall=True, reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        r = hunt_suite_http(tb, "127.0.0.1", srv.server_address[1])
+    finally:
+        srv.shutdown()
+    classes = {f["class"]: f for f in r["findings"]}
+    assert "catch_all" in classes
+    assert classes["catch_all"]["verdict"] == "suspect"
+    assert not [f for f in r["findings"] if f["verdict"] == "confirmed"], \
+        "anomalia sem prova nao pode virar confirmed"
+
+
+# -------------------------------------------------- bateria proto (nao-HTTP)
+def test_suite_proto_redis_sem_auth_em_porta_nao_padrao(tmp_path):
+    from services.pentest.app.hunt_suite import hunt_suite_proto
+
+    def responder(dados: bytes) -> bytes:
+        out = b""
+        if b"PING" in dados:
+            out += b"+PONG\r\n"
+        if b"INFO" in dados:
+            out += (b"$48\r\n# Server\r\nredis_version:7.0.11\r\n"
+                    b"redis_mode:standalone\r\n\r\n")
+        return out
+
+    srv, porta = _servidor_tcp(responder)
+    try:
+        tb = _hunter(tmp_path).tb
+        r = hunt_suite_proto(tb, "127.0.0.1", porta,
+                             banner="redis 7.0.11")
+    finally:
+        srv.close()
+    assert r["findings"], "redis sem auth nao foi detectado"
+    f = r["findings"][0]
+    assert f["class"] == "redis_unauth"
+    assert f["verdict"] == "confirmed"
+    assert f["verification"] == "proto_granted_access"
+
+
+def test_suite_proto_mqtt_connack_sem_credencial(tmp_path):
+    from services.pentest.app.hunt_suite import hunt_suite_proto
+    srv, porta = _servidor_tcp(lambda dados: b"\x20\x02\x00\x00")
+    try:
+        tb = _hunter(tmp_path).tb
+        r = hunt_suite_proto(tb, "127.0.0.1", porta, banner="mosquitto MQTT")
+    finally:
+        srv.close()
+    assert r["findings"], "CONNACK sem auth nao foi detectado"
+    f = r["findings"][0]
+    assert f["class"] == "mqtt_unauth"
+    assert f["verdict"] == "confirmed"
+
+
+# ------------------------------------------------- cacada completa (no LLM)
+def test_hunt_host_sem_llm_eventos_auditoria(tmp_path):
+    srv_web = _servidor_web(catchall=True)
+
+    def responder(dados: bytes) -> bytes:
+        return b"+PONG\r\n" if b"PING" in dados else b""
+
+    srv_redis, porta_redis = _servidor_tcp(responder)
+    try:
+        hunter = _hunter(tmp_path)
+        porta_web = srv_web.server_address[1]
+        hh = hunter.hunt_host("127.0.0.1", ports=[porta_web, porta_redis],
+                              products={porta_web: "TestVuln http",
+                                        porta_redis: "redis 7"})
+        assert hh.outcome == "SUCCESS", f"esperava achado confirmado: {hh.detail}"
+        confirmadas = [f for f in hh.suite_findings
+                       if f["verdict"] == "confirmed"]
+        assert confirmadas, "nenhuma falha confirmada na cacada"
+
+        hunter._flush_manifest()
+        doc = hunter._aggregate()
+        hunter._write_run_config()
+        from services.pentest.app.audit import audit_run
+        a1 = audit_run(hunter.run_dir, expect_llm=False)
+        a2 = audit_hunt(hunter.run_dir, doc)
+        assert a1["pass"], f"audit_run falhou: {[c for c in a1['checks'] if not c['pass']]}"
+        assert a2["pass"], f"audit_hunt falhou: {a2['checks']}"
+    finally:
+        srv_web.shutdown()
+        srv_redis.close()
+
+
+# ----------------------------------------------- honestidade do veredito LLM
+def test_parse_hunt_final_confirma_so_com_arquivo_de_evidencia():
+    json_prosa = ('{"summary": "achei", "findings": [{"port": 5050, '
+                  '"verdict": "confirmed", "hypothesis": "catch-all faz '
+                  'fetch", "evidence": "confirmei manualmente olhando a '
+                  'resposta", "sub_technique": "T1190"}]}')
+    achados = _parse_hunt_final(json_prosa)
+    assert achados[0]["verdict"] == "suspect", \
+        "confirmed do LLM com prosa tem que virar suspect"
+    assert achados[0]["verification"] == "none"
+
+    json_arquivo = ('{"summary": "achei", "findings": [{"port": 5050, '
+                    '"verdict": "confirmed", "hypothesis": "reflexao", '
+                    '"evidence": "step003_http_probe/GET_123456.json", '
+                    '"sub_technique": "T1190"}]}')
+    achados = _parse_hunt_final(json_arquivo)
+    assert achados[0]["verdict"] == "confirmed"
+    assert achados[0]["verification"] == "evidence_file"
+
+
+def test_audit_hunt_reprova_confirmed_com_evidencia_inexistente(tmp_path):
+    doc = {"findings": [{"host": "127.0.0.1", "port": 80,
+                         "class": "reflection", "verdict": "confirmed",
+                         "verification": "reflection_token",
+                         "evidence": "arquivo_que_nao_existe.json"}]}
+    r = audit_hunt(tmp_path, doc)
+    assert not r["pass"]
+    assert any("inexistente" in c["detail"] or "confirmed" in c["detail"]
+               for c in r["checks"] if not c["pass"])
+
+
+# --------------------------------- evidencia OOB unica (regressao da run real)
+def test_probes_oob_naocolidem_no_manifesto(tmp_path):
+    """Run real 20260913_224547: duas sondas OOB gravavam o MESMO
+    oob_listener.log (sobrescrita) e a auditoria reprovava o sha256.
+    Cada sonda agora grava o proprio arquivo."""
+    import hashlib
+    from services.pentest.app.arsenal import net_probe
+
+    srv, porta = _servidor_tcp(lambda dados: b"")  # nunca devolve callback
+    try:
+        tb = _hunter(tmp_path).tb
+        r1 = net_probe(tb, "127.0.0.1", porta, "tcp", send_text="a\r\n",
+                       oob_wait=1)
+        r2 = net_probe(tb, "127.0.0.1", porta, "tcp", send_text="b\r\n",
+                       oob_wait=1)
+    finally:
+        srv.close()
+    assert r1["oob_evidence"] != r2["oob_evidence"], \
+        "logs OOB colidem: segundo sobrescreve o primeiro"
+    for r in (r1, r2):
+        p = tb.evidence_root.parent / r["oob_evidence"]
+        assert p.exists()
+        m = [x for x in tb.evidence_manifest if x["file"] == r["oob_evidence"]]
+        assert len(m) == 1
+        assert m[0]["sha256"] == hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+# -------------------------------------- F2.5: verificacao de suspeitas (FPs)
+def _suspect_de(tb, srv, classe: str):
+    from services.pentest.app.hunt_suite import hunt_suite_http
+    r = hunt_suite_http(tb, "127.0.0.1", srv.server_address[1])
+    achados = [f for f in r["findings"] if f["class"] == classe]
+    assert achados, f"bateria nao suspeitou de {classe}: {r['findings']}"
+    return achados[0]
+
+
+def test_verify_descarta_catchall_spa(tmp_path):
+    """SPA que serve a MESMA pagina para toda rota = comportamento padrao
+    (nao anomalia) — o maior gerador de falso positivo da run real."""
+    from services.pentest.app.hunt_suite import verify_suspect
+    srv = _servidor_web(catchall=True, reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "catch_all")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "discarded"
+    assert "fallback" in v["motivo"].lower()
+
+
+def test_verify_catchall_distinto_permanece_suspect(tmp_path):
+    """Catch-all com corpo DISTINTO por rota e sem eco de token: anomalia
+    real, mas sem prova automatica possivel — permanece suspect com motivo."""
+    from services.pentest.app.hunt_suite import verify_suspect
+    srv = _servidor_web(distinct=True, reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "catch_all")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "suspect"
+    assert v["motivo"]
+
+
+def test_verify_error_leak_confirma_stack_real_e_descarta_generico(tmp_path):
+    from services.pentest.app.hunt_suite import verify_suspect
+    # real: frame arquivo:linha -> confirmed com stack_signature
+    srv = _servidor_web(leak="real", reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "error_leak")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "confirmed"
+    assert v["findings"][0]["verification"] == "stack_signature"
+
+    # generico: palavra "exception" sem frame -> descartado
+    srv2 = _servidor_web(leak="generic", reflect=False, echo_post=False,
+                         traversal=False)
+    try:
+        tb2 = _hunter(tmp_path).tb
+        f2 = _suspect_de(tb2, srv2, "error_leak")
+        v2 = verify_suspect(tb2, "127.0.0.1", srv2.server_address[1], f2)
+    finally:
+        srv2.shutdown()
+    assert v2["action"] == "discarded"
+
+
+def test_verify_methods_trace_e_put_confirmados(tmp_path):
+    """OPTIONS anunciando TRACE/PUT: verificacao EXECUTA — TRACE ecoando o
+    pedido vira XST confirmed; PUT+GET roundtrip vira upload arbitrario
+    confirmed (com limpeca DELETE)."""
+    from services.pentest.app.hunt_suite import verify_suspect
+    srv = _servidor_web(trace=True, put=True, announce="GET, TRACE, PUT",
+                        reflect=False, echo_post=False, traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "methods_exposed")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "confirmed"
+    classes = {x["class"] for x in v["findings"]}
+    assert "cross_site_trace" in classes
+    assert "arbitrary_file_upload" in classes
+    # limpeca real: o DELETE removeu o arquivo-canario criado pelo PUT
+    for x in v["findings"]:
+        if x["class"] == "arbitrary_file_upload":
+            assert "cleanup DELETE falhou" not in x["detail"]
+    assert srv.RequestHandlerClass.files == {}
+
+
+def test_verify_header_bypass_sem_efeito_descarta(tmp_path):
+    """/admin direto 404, GET / com X-Original-URL devolve a raiz (200) —
+    header sem efeito: falso positivo, descarta."""
+    from services.pentest.app.hunt_suite import verify_suspect
+    srv = _servidor_web(root_ok=True, reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "header_bypass")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "discarded"
+    assert "sem efeito" in v["motivo"]
+
+
+def test_verify_header_bypass_com_efeito_continua_suspect(tmp_path):
+    """Header altera a resposta de /admin de forma especifica: bypass
+    plausivel — mantem suspect (prova exige contexto do app)."""
+    from services.pentest.app.hunt_suite import verify_suspect
+    srv = _servidor_web(hx=True, reflect=False, echo_post=False,
+                        traversal=False)
+    try:
+        tb = _hunter(tmp_path).tb
+        f = _suspect_de(tb, srv, "header_bypass")
+        v = verify_suspect(tb, "127.0.0.1", srv.server_address[1], f)
+    finally:
+        srv.shutdown()
+    assert v["action"] == "suspect"

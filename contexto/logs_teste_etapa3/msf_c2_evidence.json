@@ -1,0 +1,14 @@
+{
+  "target": "juice.octopux",
+  "sessions": [
+    {
+      "sid": 1,
+      "type": "meterpreter",
+      "peer": "192.168.50.210:56216",
+      "sysinfo": "Computer     : Lazarus\nOS           : Debian  (Linux 6.1.0-35-amd64)\nArchitecture : x64\nBuildTuple   : x86_64-linux-musl\nMeterpreter  : x64/linux",
+      "getuid": "Server username: root",
+      "root": true
+    }
+  ],
+  "ts": "2026-09-25 00:25:47"
+}
