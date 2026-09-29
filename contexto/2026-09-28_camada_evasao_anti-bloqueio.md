@@ -102,6 +102,42 @@ sed -i 's/^enabled = 0/enabled = 1/' config.ini   # seção [EVASION]
 
 O docker-run.sh derruba o pool no fim (trap) e o próximo `up` é idempotente.
 
+## ATIVAÇÃO EXECUTADA (21h-23h30, mesma noite) — correções de campo
+
+O run forense foi **morto no PASSO 9/40** (docker kill, output arquivado em
+`_archive/output_backup_20260928_run_forense_pre_evasao`, 32MB) e o novo run
+subiu com evasão ativa. Durante a ativação, dois bugs de campo:
+
+1. **`3proxy` NÃO existe nos repos do Kali** (`Unable to locate package`) → escrito
+   **`evasion_socks.py`**: servidor SOCKS5 pure-Python (RFC 1928, sem auth,
+   CONNECT) com source-binding via `socket.create_connection(source_address=)`.
+   Zero dependências de pacote — python3 já está na imagem. Validado: curl via
+   `socks5h://127.0.0.1:10800` chega ao destino com origem 127.0.0.2.
+2. **`iproute2` (comando `ip`) NÃO está na imagem Kali** → o pool container não
+   conseguia criar aliases (e o fallback "eth0" mascarava o erro). Reestruturado:
+   **aliases no HOST** (que tem iproute2, via `evasion_pool.sh aliases-up`) +
+   **SOCKS no container** (`socks-up`, persiste durante a campanha).
+   `evasion_pool.sh` ganhou modos: `aliases-up|aliases-down|socks-up|socks-down`.
+   Fallback silencioso de iface eliminado (erro alto e claro).
+
+**Estado final do pool no ar (validado ao vivo):**
+- 10 aliases `192.168.50.240-249/24` em `enp5s0`
+- 10 listeners SOCKS `127.0.0.1:10800-10809` (container `ruadan-evasion-pool`, host network)
+- Chain testado: `curl -x socks5h://127.0.0.1:10800` → origem `192.168.50.240` → HTTP 200
+
+## Novo deliverable: `defense_matrix.sh` (matriz Blue × Red)
+
+Gera, a partir dos dados coletados pela campanha (evasion_state.env + findings):
+1. **Inventário de adversários** — quem é real e quem é FITA, por alvo
+2. **Hashes/origem/dependências** — md5 por porta, cross-port/cross-host (fita
+   centralizada), TTL mismatch, threshold/cooldown aprendidos
+3. **Qualificação de competência da defesa** — score 0-10 → NOVICE..ESPECIALISTA
+4. **Matriz Blue × Red** — capacidade azul × contramedida vermelha × cobertura
+5. **Gaps** — IPS modo cauteloso, sqlmap budget-aware, TTL non-HTTP
+
+Uso durante/apos o run: `bash defense_matrix.sh /ruadan/output`
+(agregação validada contra os estados dos testes T3/T5/T7).
+
 ## Estado do run forense no momento da escrita
 
 - Container: 10h+, **PASSO 9/40** — EXPLOIT_REMOTE em **192.168.50.222** (o VMware, o alvo com CVEs reais)
