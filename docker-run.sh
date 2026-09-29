@@ -290,10 +290,11 @@ if [[ "$1" == "--logs" || "$1" == "-logs" || "$1" == "--logs-ollama" ]]; then
     fi
 fi
 
-# Ensure evasion pool is up: aliases de IP + SOCKS5 com source-binding.
+# Ensure evasion pool is up: aliases de IP no HOST (iproute2 do host — a imagem
+# Kali NÃO tem iproute2) + SOCKS5 com source-binding no container (persiste
+# enquanto a campanha roda; os processos morrem com o container).
 # Só sobe quando [EVASION] enabled=1 no config.ini — com enabled=0 (run
-# forense) nada muda. Idempotente; o container fica de pé para manter os
-# processos 3proxy vivos (aliases caem no netns do host e persistem).
+# forense) nada muda. Idempotente.
 ensure_evasion_pool() {
     local _ev_enabled
     [ -f "${SCRIPT_DIR}/config.ini" ] || return 0
@@ -311,29 +312,35 @@ ensure_evasion_pool() {
         echo "[*] Evasão desligada ([EVASION] enabled=0) — pool de IPs não iniciado."
         return 0
     fi
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
-        echo "[+] Pool de evasão (aliases + SOCKS5) já no ar."
-        return 0
+    echo "[*] Subindo pool de evasão (aliases de IP no host + SOCKS5 no container)..."
+    # 1. aliases no HOST (idempotente — precisa iproute2 do host)
+    if bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-up; then
+        echo "[+] Aliases de IP configurados na interface do host."
+    else
+        echo "[!] Falha ao adicionar aliases — evasão vai operar só com o IP direto."
     fi
-    echo "[*] Subindo pool de evasão (aliases de IP + 3proxy SOCKS5)..."
-    docker run -d --name ruadan-evasion-pool \
-        --network host --cap-add NET_ADMIN \
-        -v "${SCRIPT_DIR}:/ruadan" \
-        --entrypoint bash \
-        "${IMAGE_NAME}" -c "/ruadan/evasion_pool.sh up && exec sleep infinity" \
-        && echo "[+] Pool de evasão no ar (container ruadan-evasion-pool)."
-}
-
-# Derruba o pool: mata o container (3proxys morrem junto) e remove os aliases
-# da interface do host (ip addr del roda no netns do host via NET_ADMIN).
-teardown_evasion_pool() {
-    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
-        echo "[*] Derrubando pool de evasão (aliases + SOCKS5)..."
-        docker run --rm --network host --cap-add NET_ADMIN \
+    # 2. SOCKS no container (idempotente)
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
+        docker exec ruadan-evasion-pool bash /ruadan/evasion_pool.sh socks-up >/dev/null 2>&1
+        echo "[+] Pool de evasão já no ar (container ruadan-evasion-pool)."
+    else
+        docker run -d --name ruadan-evasion-pool \
+            --network host \
             -v "${SCRIPT_DIR}:/ruadan" \
             --entrypoint bash \
-            "${IMAGE_NAME}" /ruadan/evasion_pool.sh down >/dev/null 2>&1
+            "${IMAGE_NAME}" -c "/ruadan/evasion_pool.sh socks-up && exec sleep infinity" \
+            >/dev/null 2>&1 \
+            && echo "[+] Pool de evasão no ar (container ruadan-evasion-pool)."
+    fi
+}
+
+# Derruba o pool: mata o container (SOCKS morrem junto) e remove os aliases
+# da interface do host.
+teardown_evasion_pool() {
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
+        echo "[*] Derrubando pool de evasão (aliases + SOCKS)..."
         docker rm -f ruadan-evasion-pool >/dev/null 2>&1
+        bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-down >/dev/null 2>&1
         echo "[+] Pool de evasão derrubado."
     fi
 }

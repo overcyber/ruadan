@@ -65,10 +65,17 @@ if [ -z "$EV_IP_POOL" ]; then
     exit 1
 fi
 
-# Detecta interface default (para alias de LAN)
+# Detecta interface default (para alias de LAN). Sem iproute2 → ERRO alto e
+# claro (não chuta eth0: alias em interface errada é silenciosamente inútil).
 if [ -z "$EV_IFACE" ] || [ "$EV_IFACE" = "auto" ]; then
-    EV_IFACE=$(ip route 2>/dev/null | awk '/^default/ {print $5; exit}')
-    [ -z "$EV_IFACE" ] && EV_IFACE="eth0"
+    if command -v ip >/dev/null 2>&1; then
+        EV_IFACE=$(ip route 2>/dev/null | awk '/^default/ {print $5; exit}')
+    fi
+    if [ -z "$EV_IFACE" ]; then
+        echo "[evasion-pool][ERRO] não consegui detectar a interface default (iproute2 ausente?)"
+        echo "[evasion-pool][ERRO] exporte EV_IFACE=<iface> explicitamente"
+        exit 1
+    fi
 fi
 
 # Máscara: loopback /8; LAN /24 (configurável via EV_CIDR)
@@ -114,79 +121,118 @@ proxy_up() {
 }
 
 start_proxy_for() {
-    local ip="$1" port="$2" cfg="/tmp/3proxy-ev-${port}.cfg"
+    local ip="$1" port="$2"
     if proxy_up "$port"; then
         echo "[evasion-pool]     socks5 127.0.0.1:${port} (src ${ip}) já no ar"
         return 0
     fi
-    if ! command -v 3proxy >/dev/null 2>&1; then
-        return 3   # 3proxy ausente — só alias
-    fi
-    cat > "$cfg" <<EOF
+    local pidfile="/run/evasion-socks-${port}.pid"
+    # 3proxy se existir; senão evasion_socks.py (pure-Python, SEM dependências —
+    # o pacote 3proxy não existe nos repos do Kali)
+    if command -v 3proxy >/dev/null 2>&1; then
+        local cfg="/tmp/3proxy-ev-${port}.cfg"
+        cat > "$cfg" <<EOF
 daemon
-pidfile /run/3proxy-ev-${port}.pid
+pidfile ${pidfile}
 log /dev/null
 allow *
 maxconn 256
 socks -p${port} -i127.0.0.1 -e${ip}
 EOF
-    3proxy "$cfg" 2>/dev/null
-    sleep 0.3
+        3proxy "$cfg" 2>/dev/null
+    elif command -v python3 >/dev/null 2>&1 && [ -f "$EV_LIB_DIR/evasion_socks.py" ]; then
+        nohup python3 "$EV_LIB_DIR/evasion_socks.py" -l 127.0.0.1 -p "$port" -s "$ip" >/dev/null 2>&1 &
+        echo $! > "$pidfile"
+    else
+        echo "[evasion-pool][WARN] nem 3proxy nem evasion_socks.py disponíveis — ffuf ficará sem rotação de source-IP"
+        return 3
+    fi
+    sleep 0.4
     if proxy_up "$port"; then
         echo "[evasion-pool]     socks5 127.0.0.1:${port} (src ${ip}) no ar"
         return 0
     fi
-    echo "[evasion-pool][WARN] 3proxy falhou ao subir 127.0.0.1:${port} (src ${ip})"
+    echo "[evasion-pool][WARN] proxy falhou ao subir 127.0.0.1:${port} (src ${ip})"
     return 1
 }
 
 stop_proxy_for() {
-    local port="$1" pidfile="/run/3proxy-ev-${port}.pid"
+    local port="$1" pidfile="/run/evasion-socks-${port}.pid"
     if [ -f "$pidfile" ]; then
         kill "$(cat "$pidfile")" 2>/dev/null
         rm -f "$pidfile"
     fi
+    # fallback: mata por pattern de linha de comando
+    pkill -f "evasion_socks.py .* -p ${port} " 2>/dev/null
+    pkill -f "3proxy.*${port}" 2>/dev/null
     rm -f "/tmp/3proxy-ev-${port}.cfg"
 }
 
-case "${1:-status}" in
-up)
-    echo "[evasion-pool] Subindo pool: iface=${EV_IFACE} cidr=/${EV_CIDR} range=${EV_IP_POOL}"
-    have_3proxy=1
-    command -v 3proxy >/dev/null 2>&1 || { have_3proxy=0; echo "[evasion-pool][WARN] 3proxy ausente — ffuf/gobuster ficarão sem rotação de source-IP (curl --interface continua funcionando)"; }
-    idx=0
+# ---------- Operações parciais (docker-run.sh divide: aliases no HOST com
+# iproute2, SOCKS no container — a imagem Kali NÃO tem iproute2) ------------------
+aliases_up() {
+    echo "[evasion-pool] Aliases: iface=${EV_IFACE} cidr=/${EV_CIDR} range=${EV_IP_POOL}"
     while read -r ip; do
         [ -z "$ip" ] && continue
         if alias_present "$ip"; then
             echo "[evasion-pool]   alias ${ip}/${EV_CIDR} já presente em ${EV_IFACE}"
+        elif ip addr add "${ip}/${EV_CIDR}" dev "$EV_IFACE" 2>/dev/null; then
+            echo "[evasion-pool]   alias ${ip}/${EV_CIDR} adicionado em ${EV_IFACE}"
         else
-            if ip addr add "${ip}/${EV_CIDR}" dev "$EV_IFACE" 2>/dev/null; then
-                echo "[evasion-pool]   alias ${ip}/${EV_CIDR} adicionado em ${EV_IFACE}"
-            else
-                echo "[evasion-pool][ERRO] falha ao adicionar ${ip}/${EV_CIDR} em ${EV_IFACE} (precisa NET_ADMIN/root?)"
-            fi
+            echo "[evasion-pool][ERRO] falha ao adicionar ${ip}/${EV_CIDR} em ${EV_IFACE} (precisa root?)"
         fi
-        port=$((EV_PROXY_BASE_PORT + idx))
-        rc=0; start_proxy_for "$ip" "$port" || rc=$?
-        [ "$rc" = "3" ] && have_3proxy=0
-        idx=$((idx + 1))
     done < <(expand_pool "$EV_IP_POOL")
-    echo "[evasion-pool] Pool pronto (${idx} identidades)."
-    ;;
-down)
-    echo "[evasion-pool] Derrubando pool: iface=${EV_IFACE}"
-    idx=0
+}
+aliases_down() {
+    echo "[evasion-pool] Removendo aliases de ${EV_IFACE}"
     while read -r ip; do
         [ -z "$ip" ] && continue
-        port=$((EV_PROXY_BASE_PORT + idx))
-        stop_proxy_for "$port"
         if alias_present "$ip"; then
             ip addr del "${ip}/${EV_CIDR}" dev "$EV_IFACE" 2>/dev/null \
                 && echo "[evasion-pool]   alias ${ip} removido" \
                 || echo "[evasion-pool][WARN] não removeu alias ${ip}"
         fi
+    done < <(expand_pool "$EV_IP_POOL")
+}
+socks_up() {
+    echo "[evasion-pool] SOCKS: range=${EV_IP_POOL} base=${EV_PROXY_BASE_PORT}"
+    idx=0
+    while read -r ip; do
+        [ -z "$ip" ] && continue
+        port=$((EV_PROXY_BASE_PORT + idx))
+        start_proxy_for "$ip" "$port" >/dev/null 2>&1 || true
+        if proxy_up "$port"; then
+            echo "[evasion-pool]   socks5 127.0.0.1:${port} (src ${ip}) no ar"
+        else
+            echo "[evasion-pool][ERRO] socks5 127.0.0.1:${port} (src ${ip}) NÃO subiu"
+        fi
         idx=$((idx + 1))
     done < <(expand_pool "$EV_IP_POOL")
+    echo "[evasion-pool] ${idx} listeners SOCKS processados."
+}
+socks_down() {
+    idx=0
+    while read -r ip; do
+        [ -z "$ip" ] && continue
+        stop_proxy_for "$((EV_PROXY_BASE_PORT + idx))"
+        idx=$((idx + 1))
+    done < <(expand_pool "$EV_IP_POOL")
+    echo "[evasion-pool] listeners SOCKS derrubados."
+}
+
+case "${1:-status}" in
+up)
+    aliases_up
+    socks_up
+    echo "[evasion-pool] Pool pronto."
+    ;;
+aliases-up)   aliases_up ;;
+aliases-down) aliases_down ;;
+socks-up)     socks_up ;;
+socks-down)   socks_down ;;
+down)
+    socks_down
+    aliases_down
     echo "[evasion-pool] Pool derrubado."
     ;;
 status)
@@ -203,7 +249,7 @@ status)
     echo "[evasion-pool] ${alive}/${idx} proxies no ar"
     ;;
 *)
-    echo "uso: evasion_pool.sh up|down|status"
+    echo "uso: evasion_pool.sh up|down|aliases-up|aliases-down|socks-up|socks-down|status"
     echo "env: EV_IP_POOL=192.168.50.240-249 EV_IFACE=enp5s0 EV_PROXY_BASE_PORT=10800 EV_CONFIG=/ruadan/config.ini"
     exit 1
     ;;
