@@ -169,6 +169,15 @@ ev_jitter() {
 }
 
 # ---------- Registro de código HTTP (janela deslizante + budget + bloqueio) ----
+# Baseline da porta: se o path conhecido (/) JÁ responde 403/429 por padrão
+# (wildcard/soft-403 do proxy), uma rajada de 403 NÃO é sinal de bloqueio —
+# o sinal 403 fica "cego" nessa porta e só timeouts (000) podem indicar block.
+EV_BASELINE_CODE=""
+_ev_403_blind() {
+    [ "$EV_ENABLED" = 1 ] || return 1
+    [ "$EV_BASELINE_CODE" = "403" ] || [ "$EV_BASELINE_CODE" = "429" ]
+}
+
 _ev_trim_window() {
     local n
     n=$(wc -l < "$EV_WINDOW_FILE" 2>/dev/null || echo 0)
@@ -177,18 +186,22 @@ _ev_trim_window() {
 
 _ev_block_check() {
     local k lines bad
-    k="$EV_BLOCK_403_THRESHOLD"
-    lines=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | wc -l)
-    bad=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | grep -vcE '^(403|429)$')
-    [ "$lines" -eq "$k" ] && [ "$bad" -eq 0 ] && return 0
+    if ! _ev_403_blind; then
+        k="$EV_BLOCK_403_THRESHOLD"
+        lines=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | wc -l)
+        bad=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | grep -vcE '^(403|429)$')
+        [ "$lines" -eq "$k" ] && [ "$bad" -eq 0 ] && return 0
+    fi
     k="$EV_BLOCK_TIMEOUT_THRESHOLD"
     lines=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | wc -l)
     bad=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | grep -vc '^000$')
     [ "$lines" -eq "$k" ] && [ "$bad" -eq 0 ] && return 0
-    k="$EV_BLOCK_MIXED_THRESHOLD"
-    lines=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | wc -l)
-    bad=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | grep -vcE '^(000|403|429)$')
-    [ "$lines" -eq "$k" ] && [ "$bad" -eq 0 ] && return 0
+    if ! _ev_403_blind; then
+        k="$EV_BLOCK_MIXED_THRESHOLD"
+        lines=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | wc -l)
+        bad=$(tail -n "$k" "$EV_WINDOW_FILE" 2>/dev/null | grep -vcE '^(000|403|429)$')
+        [ "$lines" -eq "$k" ] && [ "$bad" -eq 0 ] && return 0
+    fi
     return 1
 }
 
@@ -497,6 +510,22 @@ ev_init() {
     v=$(_ev_state_get "req_ident_$EV_IDENT"); [ -n "$v" ] && EV_REQ_IDENT="$v"
     _ev_ident_curl_args
     EV_PROBE_URL="${EV_SCHEME}://${EV_TARGET}:${EV_PORT}${EV_PROBE_PATH}"
+
+    # Baseline da porta (cacheado no estado): se / já responde 403/429 por
+    # padrão, o detector de bloqueio fica cego a 403 nessa porta (só timeouts)
+    local _bl
+    _bl=$(_ev_state_get "baseline_$EV_PORT")
+    if [ -z "$_bl" ]; then
+        _bl=$(curl -sk --max-time "$EV_PROBE_TIMEOUT" -o /dev/null -w '%{http_code}' ${EV__IDA[@]+"${EV__IDA[@]}"} "$EV_PROBE_URL" 2>/dev/null)
+        if [ -n "$_bl" ]; then
+            _ev_state_set "baseline_$EV_PORT" "$_bl"
+            EV_REQ_COUNT=$((EV_REQ_COUNT + 1)); _ev_state_set req_count "$EV_REQ_COUNT"
+        fi
+    fi
+    EV_BASELINE_CODE="${_bl:-}"
+    if _ev_403_blind; then
+        echo "[EVASION] baseline HTTP ${EV_BASELINE_CODE} em ${EV_TARGET}:${EV_PORT} — porta wildcard: detector de bloqueio cego a 403 (só timeouts)"
+    fi
 
     # Detecção de fita (emulação) — lazy, uma vez por porta
     if [ "$EV_EMULATION_CHECK" = 1 ] && [ -z "$(_ev_state_get "emchk_$EV_PORT")" ] && [ -f "$EV_LIB_DIR/emulation_check.sh" ]; then

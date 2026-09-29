@@ -157,7 +157,8 @@ EOF
 }
 
 stop_proxy_for() {
-    local port="$1" pidfile="/run/evasion-socks-${port}.pid"
+    local port="$1"
+    local pidfile="/run/evasion-socks-${port}.pid"
     if [ -f "$pidfile" ]; then
         kill "$(cat "$pidfile")" 2>/dev/null
         rm -f "$pidfile"
