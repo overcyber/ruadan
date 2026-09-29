@@ -82,6 +82,10 @@ EV_PROXY_BASE_PORT="${EV_PROXY_BASE_PORT:-}"
 EV_CHUNK_SIZE="${EV_CHUNK_SIZE:-}"
 EV_EMULATION_CHECK="${EV_EMULATION_CHECK:-}"
 EV_DEFENSE_FINGERPRINT="${EV_DEFENSE_FINGERPRINT:-}"
+# Governor de portas-únicas: defesas anti-portscan contam portas ACEITAS por
+# IP. Cap genérico (config port_touch_cap); substituído pelo threshold REAL
+# aprendido pelo oráculo do bloqueio (trap_census/porttouch_threshold_learned).
+EV_PORT_TOUCH_CAP="${EV_PORT_TOUCH_CAP:-}"
 EV_SOCKS_OK=0
 
 # ---------- Parser de config ([EVASION] do config.ini) ------------------------
@@ -168,6 +172,30 @@ ev_jitter() {
     sleep "$d"
 }
 
+# ---------- Governor de portas-únicas (anti portscan-detector) ------------------
+# Defesas anti-portscan contam PORTAS ÚNICAS ACEITAS por IP (não requests).
+# O set tipicamente NÃO encolhe com o IP ativo → cap por IP e rotação proativa.
+# Threshold real é APRENDIDO (porttouch_threshold_learned, oráculo do ban no
+# trap_census); IP que tomou ban = offender → aposentado (ofensas não expiram).
+ev_ptouch_add() {
+    [ "$EV_ENABLED" = 1 ] || return 0
+    local port="$1" cur cnt cap learned
+    cur=$(_ev_state_get "ptouch_$EV_IDENT"); cur="${cur:-}"
+    case ",$cur," in *",$port,"*) return 0 ;; esac
+    _ev_state_set "ptouch_$EV_IDENT" "${cur:+$cur,}$port"
+    cnt=$(awk -F, '{print NF}' <<< "${cur:+$cur,}$port")
+    cap="$EV_PORT_TOUCH_CAP"
+    learned=$(_ev_state_get porttouch_threshold_learned)
+    if [ -n "$learned" ] && [ "$learned" -ge 4 ] 2>/dev/null; then
+        cap=$(( learned > 3 ? learned - 2 : learned - 1 ))
+    fi
+    if [ "$cnt" -ge "$cap" ]; then
+        echo "[EVASION] port-touch cap ${cap} na identidade $EV_IDENT (${cnt} portas únicas) — rotação proativa"
+        ev_rotate
+        : > "$EV_WINDOW_FILE"
+    fi
+}
+
 # ---------- Registro de código HTTP (janela deslizante + budget + bloqueio) ----
 # Baseline da porta: se o path conhecido (/) JÁ responde 403/429 por padrão
 # (wildcard/soft-403 do proxy), uma rajada de 403 NÃO é sinal de bloqueio —
@@ -247,6 +275,10 @@ ev_rotate() {
     local i
     for ((i = 1; i <= n + 1; i++)); do
         cand=$(( (EV_IDENT + i) % (n + 1) ))
+        # NOTA: ofensores NÃO são pulados aqui — o cooldown é APRENDÍVEL
+        # (voltar a um IP queimado após expiração é como aprendemos o tempo
+        # real da defesa). Aposentadoria de ofensores vale só na camada de
+        # portas-únicas (trap_census/nmap_ev), onde escalonamento é eterno.
         # cooldown da identidade queimada
         bt=$(_ev_state_get "burned_$cand")
         if [ -n "$bt" ]; then
@@ -295,6 +327,9 @@ ev_on_block() {
     local win_tail learned
     win_tail=$(tail -n 8 "$EV_WINDOW_FILE" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
     _ev_state_set "burned_$EV_IDENT" "$(date +%s)"
+    # Ofensor: defesas anti-portscan escalonam sem expirar ofensas — IP que
+    # triggerou uma vez NUNCA mais vale a pena neste alvo. Aposenta.
+    _ev_state_set "offender_$EV_IDENT" "1"
     learned=$(_ev_state_get block_threshold_learned)
     [ -z "$learned" ] && learned=0
     if [ "$EV_REQ_IDENT" -gt "$learned" ]; then
@@ -479,6 +514,8 @@ ev_init() {
     EV_PROBE_PATH="${EV_PROBE_PATH:-/}"
     EV_EMULATION_CHECK="${EV_EMULATION_CHECK:-$(_ev_cfg emulation_check 1)}"
     EV_DEFENSE_FINGERPRINT="${EV_DEFENSE_FINGERPRINT:-$(_ev_cfg defense_fingerprint 1)}"
+    EV_PORT_TOUCH_CAP="${EV_PORT_TOUCH_CAP:-$(_ev_cfg port_touch_cap 8)}"
+    EV_PORT_TOUCH_CAP="${EV_PORT_TOUCH_CAP:-8}"
     local _pf="$(_ev_cfg proactive_rotate_factor 70)"
     EV_PROACTIVE_FACTOR="${EV_PROACTIVE_FACTOR:-$_pf}"
     EV_OUTPUT_DIR="${EV_OUTPUT_DIR:-/ruadan/output}"
@@ -526,6 +563,9 @@ ev_init() {
     if _ev_403_blind; then
         echo "[EVASION] baseline HTTP ${EV_BASELINE_CODE} em ${EV_TARGET}:${EV_PORT} — porta wildcard: detector de bloqueio cego a 403 (só timeouts)"
     fi
+    # Governor de portas-únicas: esta porta conta pro threshold da defesa
+    # anti-portscan (se aceita). Cap atingido → identidade nova.
+    ev_ptouch_add "$EV_PORT"
 
     # Detecção de fita (emulação) — lazy, uma vez por porta
     if [ "$EV_EMULATION_CHECK" = 1 ] && [ -z "$(_ev_state_get "emchk_$EV_PORT")" ] && [ -f "$EV_LIB_DIR/emulation_check.sh" ]; then

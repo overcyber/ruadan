@@ -131,7 +131,22 @@ echo "| Chave de bloqueio | por IP de origem (conf. usuário) |"
 echo "| Threshold de tentativas | ${th:-?} requests (aprendido) |"
 echo "| Cooldown de desbloqueio | ${cd:-?}s (aprendido) |"
 echo "| IPs que ela já queimou do nosso pool | ${nrot} |"
-echo "| Capacidade de emulação de serviço | $( [ -n "$em_any" ] && echo confirmada || echo "ver T1 por alvo" ) |"
+
+echo ""
+echo "### Census adaptativo de armadilhas (aprendido em campo, zero hardcode)"
+echo ""
+echo "| Alvo | Traps | Vivas(REAL) | Fechadas | Threshold portas (oráculo) | Ofensores aposentados |"
+echo "|---|---|---|---|---|---|"
+for t in "${TARGETS[@]}"; do
+    st="$OUT/$t/evasion_state.env"
+    [ -f "$st" ] || continue
+    ntrap=$(grep -cE '^tp_[0-9]+=trap$' "$st" 2>/dev/null || echo 0)
+    nlive=$(grep -cE '^tp_[0-9]+=live$' "$st" 2>/dev/null || echo 0)
+    nclosed=$(grep -cE '^tp_[0-9]+=closed$' "$st" 2>/dev/null || echo 0)
+    ptl=$(grep -m1 '^porttouch_threshold_learned=' "$st" 2>/dev/null | cut -d= -f2-)
+    noff=$(grep -cE '^offender_' "$st" 2>/dev/null || echo 0)
+    echo "| ${t} | ${ntrap} | ${nlive} | ${nclosed} | ${ptl:-(desconhecido)} | ${noff} |"
+done
 echo ""
 
 # ============ 3. QUALIFICAÇÃO DE COMPETÊNCIA =====================================

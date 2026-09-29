@@ -198,57 +198,59 @@ PYEOF
 #    (um por vez; burn mid-sweep → cai pro próximo).
 CAND=()
 for ip in "${POOL[@]}"; do
-    b=$(st_get "burned_pair_$ip")
-    [ -n "$b" ] && continue
+    [ -n "$(st_get "offender_$ip")" ] && continue
+    [ -n "$(st_get "burned_pair_$ip")" ] && continue
     CAND+=("$ip")
 done
 [ "${#CAND[@]}" -gt 0 ] || exit $rc   # pool inteiro queimado rumo a este alvo
 
-# portas-chave (web + acesso remoto + serviços de valor) — MANTER ENXUTA
-KEY_PORTS=(443 80 8000 8080 8443 3000 8888 22 3389 5900 5800 10000)
+# ---------- Census adaptativo (FASE 1) -------------------------------------------
+# trap_census.sh: clustering de respostas idênticas + insensibilidade a request
+# + ORÁCULO DO BLOQUEIO (threshold real aprendido). ZERO assinaturas de defesa:
+# qualquer mudança na defesa muda o que o sistema APRENDE, não o que ele espera.
+# portas vivas/trap = portas ACEITAS (o -sV identifica; fuzzers pulam traps).
+_eff_cap() {
+    local learned; learned=$(st_get porttouch_threshold_learned)
+    if [ -n "$learned" ] && [ "$learned" -ge 4 ] 2>/dev/null; then
+        echo $(( learned > 3 ? learned - 2 : learned - 1 ))
+    else
+        echo "${EV_PORT_TOUCH_CAP:-8}"
+    fi
+}
+_ptouch_n() {
+    local v; v=$(st_get "ptouch_$1"); v="${v:-}"
+    [ -z "$v" ] && { echo 0; return; }
+    awk -F, '{print NF}' <<< "$v"
+}
+_ptouch_add() {
+    local cur; cur=$(st_get "ptouch_$1"); cur="${cur:-}"
+    case ",$cur," in *",$2,"*) return 0 ;; esac
+    st_set "ptouch_$1" "${cur:+$cur,}$2"
+}
+
+EV_LIB_DIR_NMAP="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+EV_IP_POOL="$IP_POOL" EV_CONFIG="${EV_CONFIG:-/ruadan/config.ini}" \
+EV_PORT_TOUCH_CAP="${EV_PORT_TOUCH_CAP:-}" \
+    bash "${EV_LIB_DIR_NMAP}/trap_census.sh" "$TARGET" "$TDIR" 2>&1 | sed 's/^/[nmap_ev|census] /'
 
 FOUND_PORTS=""
-PROBE_IP=""
-total_probes=0
-pi=0
-CACHED=$(st_get "rescue_ports")
-if [ -n "$CACHED" ]; then
-    FOUND_PORTS="$CACHED"
-else
-    for p in "${KEY_PORTS[@]}"; do
-        while [ "$pi" -lt "${#CAND[@]}" ]; do
-            ip="${CAND[$pi]}"
-            rc_p=0
-            probe_conn "$ip" "$p" || rc_p=$?
-            if [ "$rc_p" = 0 ]; then
-                FOUND_PORTS="${FOUND_PORTS}${p},"
-                PROBE_IP="${PROBE_IP:-$ip}"
-                break
-            elif [ "$rc_p" = 2 ]; then
-                # IP bloqueado rumo ao alvo → descarta e REPETE a mesma porta
-                st_set "burned_pair_$ip" "$(date +%s)"
-                pi=$((pi + 1))
-            else
-                # recusado: porta fechada, IP vivo — próxima porta
-                break
-            fi
-        done
-        total_probes=$((total_probes + 1))
-        [ "$pi" -ge "${#CAND[@]}" ] && break
-    done
-    req_bump "$total_probes"
-    FOUND_PORTS="${FOUND_PORTS%,}"
-    # conserva: o IP que sondou fica gasto rumo a este alvo
-    [ -n "$PROBE_IP" ] && st_set "burned_pair_$PROBE_IP" "$(date +%s)"
-    [ -n "$PROBE_IP" ] && st_set "rescue_probes_${TARGET}" "$total_probes"
-    [ -n "$FOUND_PORTS" ] && st_set "rescue_ports" "$FOUND_PORTS"
-fi
-[ -n "$FOUND_PORTS" ] || exit $rc   # nem a lista-chave conectou de nenhum IP
+while IFS='=' read -r k v; do
+    case "$k" in
+        tp_*) case "$v" in trap|live) FOUND_PORTS="${FOUND_PORTS}${k#tp_}," ;; esac ;;
+    esac
+done < "$STATE" 2>/dev/null
+FOUND_PORTS=$(printf '%s\n' ${FOUND_PORTS} 2>/dev/null | tr ',' '\n' | sort -un | paste -sd, -)
+FOUND_PORTS="${FOUND_PORTS%,}"
+[ -n "$FOUND_PORTS" ] || exit $rc   # census não achou portas aceitas
+st_set "rescue_ports" "$FOUND_PORTS"
 
-# IPs vivos restantes para o -sV (o que sondou já está gasto)
+# IPs com folga de ptouch para o -sV (chunks de ~3 toques/IP)
 LIVE_IPS=()
-for ((k = pi + 1; k < ${#CAND[@]}; k++)); do LIVE_IPS+=("${CAND[$k]}"); done
-[ "${#LIVE_IPS[@]}" -eq 0 ] && [ "$pi" -lt "${#CAND[@]}" ] && LIVE_IPS=("${CAND[$pi]}")
+CAP=$(_eff_cap)
+for ip in "${POOL[@]}"; do
+    [ -n "$(st_get "offender_$ip")" ] && continue
+    LIVE_IPS+=("$ip")
+done
 [ "${#LIVE_IPS[@]}" -eq 0 ] && LIVE_IPS=("${POOL[$(( ${#POOL[@]} - 1 ))]}")
 # ── FASE 2: nmap -sV em LOTES de 3 portas por IP vivo (o limite de conexões
 #    por IP rumo a hosts endurecidos ~12-15 torna impossível um -sV de
@@ -258,10 +260,19 @@ MERGED_N="$TMPD/rescue.nmap"; : > "$MERGED_N"
 BEST_N=""; BEST_X=""; n_ok=0; li=0
 IFS=',' read -ra FP <<< "$FOUND_PORTS"
 CHUNK=3
+pick_ip() {  # IP com folga de ptouch para o chunk (governor)
+    local ip
+    for ip in "${LIVE_IPS[@]}"; do
+        if [ $(( $(_ptouch_n "$ip") + ${#chunk[@]} )) -le "$CAP" ]; then
+            echo "$ip"; return 0
+        fi
+    done
+    echo "${LIVE_IPS[0]}"
+}
 for ((s = 0; s < ${#FP[@]}; s += CHUNK)); do
     chunk=("${FP[@]:s:CHUNK}")
     [ "${#chunk[@]}" -eq 0 ] && continue
-    ip="${LIVE_IPS[$((li % ${#LIVE_IPS[@]}))]}"
+    ip=$(pick_ip)
     li=$((li + 1))
     cports="$(IFS=','; echo "${chunk[*]}")"
     "$NMAP_BIN" -Pn -sV --version-light -p "$cports" -S "$ip" -e "$IFACE" \
@@ -276,8 +287,8 @@ for ((s = 0; s < ${#FP[@]}; s += CHUNK)); do
             BEST_N="$TMPD/c.nmap"; BEST_X="$TMPD/c.xml"
         fi
     fi
-    # conserva: assume que o IP do lote ficou gasto rumo a este alvo
-    st_set "burned_pair_$ip" "$(date +%s)"
+    # governor: as portas do lote contam pro threshold do IP que as escaneou
+    for cp in "${chunk[@]}"; do _ptouch_add "$ip" "$cp"; done
     rm -f "$TMPD/c.nmap" "$TMPD/c.xml"
 done
 
