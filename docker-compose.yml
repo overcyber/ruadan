@@ -1,0 +1,14 @@
+services:
+  ruadan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ruadan:kali
+    container_name: ruadan-kali
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./output:/ruadan/output
+      - ./targets:/ruadan/targets
+    command: ["--help"]

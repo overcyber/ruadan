@@ -15,6 +15,10 @@
 #      mais as rotas de alto-valor sempre que presentes.
 #   5. Saída parseável: SPA_ROUTE_FOUND: <rota> (HTTP <code>, <size> bytes)
 #      → findings do Ruadan (Findings SPARoutes)
+#
+# EVASÃO (evasion_lib.sh): budget global, jitter, detecção de bloqueio com
+# rotação de IP, 1 request onde antes eram 2, pula portas emuladas, aborto
+# gracioso. enabled=0 → padrão de requests idêntico ao original.
 # ==============================================================================
 set -u
 
@@ -25,19 +29,28 @@ CURL_OPTS="-sk --max-time 20"
 TMPD="$(mktemp -d)"
 trap 'rm -rf "$TMPD"' EXIT
 
+# ---- Camada de evasão -----------------------------------------------------------
+_EV_LIB="$(dirname "${BASH_SOURCE[0]}")/evasion_lib.sh"
+[ -f "$_EV_LIB" ] || _EV_LIB="/ruadan/evasion_lib.sh"
+. "$_EV_LIB"
+ev_init "$TARGET" "$PORT" "$SCHEME"
+ev_skip_port && exit 0
+ev_should_abort && exit 0
+
 # ---- Detecta redirect HTTP -> HTTPS -----------------------------------------
 BASE_URL="${SCHEME}://${TARGET}:${PORT}"
 if [ "$SCHEME" = "http" ]; then
-    _redir=$(curl $CURL_OPTS -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
+    _redir=$(curl $CURL_OPTS ${EV__IDA[@]+"${EV__IDA[@]}"} -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
     if [ -n "$_redir" ] && [[ "$_redir" == https* ]]; then
         echo "[spa] ${BASE_URL} redireciona para HTTPS — usando ${_redir%/}" >&2
         BASE_URL="${_redir%/}"
     fi
 fi
+ev_set_probe_url "${BASE_URL}/"
 echo "[spa] Alvo: ${BASE_URL}"
 
 # ---- Baixa index.html e descobre os bundles .js ------------------------------
-curl $CURL_OPTS "${BASE_URL}/" -o "${TMPD}/index.html" 2>/dev/null
+ev_code_bodyfile "${TMPD}/index.html" $CURL_OPTS "${BASE_URL}/"
 if [ ! -s "${TMPD}/index.html" ]; then
     echo "[spa][ERRO] Não foi possível obter o index da aplicação."
     exit 0
@@ -49,12 +62,13 @@ echo "[spa] Bundles JS encontrados: $(echo "$JS_FILES" | wc -l)"
 ALL_ROUTES="${TMPD}/routes_raw.txt"
 : > "$ALL_ROUTES"
 for js in $JS_FILES; do
+    ev_should_abort && exit 0
     case "$js" in
         http*) url="$js" ;;
         /*)     url="${BASE_URL}${js}" ;;
         *)      url="${BASE_URL}/${js}" ;;
     esac
-    curl $CURL_OPTS "$url" -o "${TMPD}/bundle.js" 2>/dev/null
+    ev_code_bodyfile "${TMPD}/bundle.js" $CURL_OPTS "$url"
     [ -s "${TMPD}/bundle.js" ] || continue
     # Angular Router minificado:  path:"rota"      /      legível: path: 'rota'
     grep -oE 'path:"[^"]+"' "${TMPD}/bundle.js" | sed 's/path:"//;s/"$//' >> "$ALL_ROUTES" 2>/dev/null
@@ -68,8 +82,8 @@ echo "[spa] Rotas candidatas extraídas: ${N_TOTAL}"
 [ "$N_TOTAL" -eq 0 ] && exit 0
 
 # ---- Baseline: resposta catch-all da SPA (rota inexistente) ------------------
-BASE_STATUS=$(curl $CURL_OPTS -H "Accept: text/html" -o /dev/null -w "%{http_code}" "${BASE_URL}/ruadan-nonexistent-${RANDOM}" 2>/dev/null)
-BASE_SIZE=$(curl $CURL_OPTS -H "Accept: text/html" -o /dev/null -w "%{size_download}" "${BASE_URL}/ruadan-nonexistent-${RANDOM}" 2>/dev/null)
+ev_code_size $CURL_OPTS -H "Accept: text/html" "${BASE_URL}/ruadan-nonexistent-${RANDOM}"
+BASE_STATUS="$EV_CODE"; BASE_SIZE="$EV_SIZE"
 echo "[spa] Baseline (catch-all): HTTP ${BASE_STATUS} / ${BASE_SIZE} bytes"
 
 # ---- Testa cada rota: reporta as que DIFEREM do catch-all ---------------------
@@ -77,8 +91,9 @@ HIGH_VALUE="score-board|admin|administration|swagger|api-doc|debug|config|backup
 FOUND=0
 while read -r route; do
     [ -z "$route" ] && continue
-    code=$(curl $CURL_OPTS -H "Accept: text/html" -o /dev/null -w "%{http_code}" "${BASE_URL}/${route}" 2>/dev/null)
-    size=$(curl $CURL_OPTS -H "Accept: text/html" -o /dev/null -w "%{size_download}" "${BASE_URL}/${route}" 2>/dev/null)
+    ev_should_abort && exit 0
+    ev_code_size $CURL_OPTS -H "Accept: text/html" "${BASE_URL}/${route}"
+    code="$EV_CODE"; size="$EV_SIZE"
     differs=0
     [ "$code" != "$BASE_STATUS" ] && differs=1
     [ "$size" != "$BASE_SIZE" ] && differs=1

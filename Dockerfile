@@ -61,6 +61,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 1b. Ferramentas de fuzzing/compilação/RPC (layer SEPARADA: não invalida o cache
 # da layer acima, que é pesada ~2GB com metasploit; mudanças aqui são rápidas)
+# 3proxy: pool SOCKS5 com source-binding (-e <ip>) para a rotação de IP da
+# camada de evasão (evasion_pool.sh) — ffuf/gobuster não suportam --interface
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffuf \
     feroxbuster \
@@ -68,6 +70,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libc6-dev \
     python3-msgpack \
+    3proxy \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

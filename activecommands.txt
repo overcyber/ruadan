@@ -1,2 +1,0 @@
-Last Update: 2019-07-18 10:24:54.667312
-[   'nmap   -T5 -sV -p- -O --script=vulscan/vulscan.nse -oN ./hosts/192_168_80_200/always/NMap_Vulscan_and_Version_Detection_0.nmap -oX ./hosts/192_168_80_200/always/NMap_Vulscan_and_Version_Detection_0.xml 192.168.80.200 --host-timeout 20m --script-timeout 20m >> ./hosts/192_168_80_200/always/NMap_Vulscan_and_Version_Detection_0.txt']

