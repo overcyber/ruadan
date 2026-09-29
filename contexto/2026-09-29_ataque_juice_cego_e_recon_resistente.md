@@ -29,8 +29,8 @@
 |---|---|
 | Bloqueio | por PAR origem→destino, silent drop |
 | Persistência do bloqueio | ≥12h (nunca viu desbloqueio) |
-| Reputação agregada | IPs muito ciclados contra um alvo amanheceram queimados contra OUTRO (.240/.241/.242 bloqueadas rumo ao juice sem nunca o ter tocado) |
-| Limite de conexões rumo ao .160 | **~12-15 TCP/IP** (bem menor que o .222: ~58-72 HTTP requests) — o juice é o alvo endurecido |
+| ~~Reputação agregada~~ | **RETRATADO (2026-09-29)**: o "IP queimado sem tocar o destino" era falso — foram meus próprios sweeps de teste (52 portas round-robin em 3 IPs ≈ 17 únicas cada > threshold). A defesa conta por IP, por host — SEM agregação entre destinos |
+| Limite de conexões rumo ao .160 | **~12-15 TCP/IP** — na verdade é o threshold de PORTAS ÚNICAS (~10) da camada anti-portscan (Potemkin), não um limite de conexões |
 | Fita | mesma página em 5+ portas; front real exige SNI |
 
 Consequência operacional: o pool de 10 IPs × ~13 conexões = **~130 conexões
