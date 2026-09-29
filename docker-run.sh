@@ -314,7 +314,7 @@ ensure_evasion_pool() {
     fi
     echo "[*] Subindo pool de evasão (aliases de IP no host + SOCKS5 no container)..."
     # 1. aliases no HOST (idempotente — precisa iproute2 do host)
-    if bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-up; then
+    if EV_CONFIG="${SCRIPT_DIR}/config.ini" bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-up; then
         echo "[+] Aliases de IP configurados na interface do host."
     else
         echo "[!] Falha ao adicionar aliases — evasão vai operar só com o IP direto."
@@ -340,7 +340,7 @@ teardown_evasion_pool() {
     if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^ruadan-evasion-pool$'; then
         echo "[*] Derrubando pool de evasão (aliases + SOCKS)..."
         docker rm -f ruadan-evasion-pool >/dev/null 2>&1
-        bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-down >/dev/null 2>&1
+        EV_CONFIG="${SCRIPT_DIR}/config.ini" bash "${SCRIPT_DIR}/evasion_pool.sh" aliases-down >/dev/null 2>&1
         echo "[+] Pool de evasão derrubado."
     fi
 }

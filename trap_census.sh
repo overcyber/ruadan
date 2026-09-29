@@ -147,6 +147,8 @@ _probe() {  # porta modo → echo "result=... hash=..."
 
 # ---------- FASE 1: coleta de observações brutas --------------------------------------
 BAN_ORACLE=0
+ALIVE_SEEN=0     # host provado vivo NESTE census (≥1 connect)
+UNREACH=0        # timeouts consecutivos SEM vida (host down ≠ ban)
 for p in "${CAND_PORTS[@]}"; do
     known=$(st_get "tp_$p")
     [ -n "$known" ] && continue
@@ -157,18 +159,30 @@ for p in "${CAND_PORTS[@]}"; do
     case "$res" in
         result=refused)
             st_set "tp_$p" "closed"          # não conta: a defesa não a viu
+            ALIVE_SEEN=1                     # RST prova que o host responde
             ;;
         result=timeout)
-            # ORÁCULO: fomos banidos. Portas-aceitas tocadas por ESTE IP até aqui
-            # = threshold observado da defesa. IP aposentado (ofensor).
-            BAN_ORACLE=$((BAN_ORACLE + 1))
-            touched=$(_ptouch_n "$ip"); touched=${touched:-0}
-            [ "$touched" -ge 2 ] && st_set porttouch_threshold_learned "$touched"
-            st_set "offender_$ip" "1"
-            st_set "burned_pair_$ip" "$(date +%s)"
-            echo "DEFENSE_PORT_THRESHOLD_LEARNED: ${TARGET} ${touched} (ban do oráculo em ${ip} após ${touched} portas-aceitas)"
+            if [ "$ALIVE_SEEN" = 1 ]; then
+                # ORÁCULO: host provado vivo + drop = BAN. Portas-aceitas tocadas
+                # por ESTE IP até aqui = threshold observado da defesa.
+                BAN_ORACLE=$((BAN_ORACLE + 1))
+                touched=$(_ptouch_n "$ip"); touched=${touched:-0}
+                [ "$touched" -ge 2 ] && st_set porttouch_threshold_learned "$touched"
+                st_set "offender_$ip" "1"
+                st_set "burned_pair_$ip" "$(date +%s)"
+                echo "DEFENSE_PORT_THRESHOLD_LEARNED: ${TARGET} ${touched} (ban do oráculo em ${ip} após ${touched} portas-aceitas)"
+            else
+                # host NÃO provado vivo: timeout = unreachable (host caído OU IP
+                # pré-bloqueado) — NÃO queima o IP nem aprende threshold falso
+                UNREACH=$((UNREACH + 1))
+                if [ "$UNREACH" -ge 3 ]; then
+                    echo "HOST_UNREACHABLE: ${TARGET} (sem resposta de ${UNREACH} IPs distintos — host caído ou bloqueio pré-existente de todo o pool)"
+                    exit 0
+                fi
+            fi
             ;;
         result=connect)
+            ALIVE_SEEN=1
             hash=$(grep -oE 'hash=[0-9a-f]*' <<< "$out" | cut -d= -f2)
             bytes=$(grep -oE 'bytes=[0-9]+' <<< "$out" | cut -d= -f2)
             # porta http-like (espera request) → resposta vazia no modo banner:
