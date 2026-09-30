@@ -127,6 +127,28 @@ class ActionDispatcher:
         except Exception:
             return False
 
+    def _has_jwt_admin(self, findings_before: dict) -> bool:
+        """JWT de admin capturado via bypass SQLi no login (api_fuzz/api_route_extract/
+        sqlmap_login_probe emitem 'JWT_ADMIN_CAPTURED: <url>').
+
+        Autenticação REAL obtida sem credenciais legítimas: o token de admin
+        dá acesso autenticado à API do alvo (nível 'credential' — o JuiceShop
+        não tem RCE por design; credential/data-exposure é o teto dele).
+        A busca é case-insensitive (configparser lowerifica os labels).
+        """
+        def _jwt_list(fdict: dict) -> list:
+            for k, v in (fdict or {}).items():
+                if str(k).lower() == "jwtadmincaptured":
+                    return v or []
+            return []
+        try:
+            f = getattr(self.ruadan, 'findings', {}) or {}
+            before = set(_jwt_list(findings_before))
+            now = set(_jwt_list(f)) - before
+            return bool(now)
+        except Exception:
+            return False
+
     def _has_login_bypass(self, findings_before: dict) -> bool:
         """Verifica se um bypass de autenticação (SQLi em login) foi CONFIRMADO nesta ação.
 
@@ -238,6 +260,9 @@ class ActionDispatcher:
         elif self._has_shell_obtained(findings_before):
             res.evidence_level = "credential"
             res.evidence_detail = "SHELL REAL OBTIDO (caçada 0-day: acesso funcional com execução remota provada)"
+        elif self._has_jwt_admin(findings_before):
+            res.evidence_level = "credential"
+            res.evidence_detail = "JWT ADMIN CAPTURADO via bypass SQLi no login (autenticação real obtida — token de admin em mãos)"
         elif self._has_api_vuln(findings_before):
             res.evidence_level = "finding"
             res.evidence_detail = "VULNERABILIDADE DE API CONFIRMADA (IDOR/NoSQL/traversal/info disclosure via fuzzing autenticado)"
