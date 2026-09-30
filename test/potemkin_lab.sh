@@ -124,17 +124,18 @@ EV_CONFIG=/nonexistent EV_IP_POOL="127.0.0.4-127.0.0.12" EV_PORT_TOUCH_CAP=2 \
     bash "$RUADAN/trap_census.sh" 127.0.0.2 "$C2ST" "${TP[5]},${TP[6]},${TP[7]},${TP[8]},7777,31337" \
     > "$RES/c2.log" 2>&1
 n_trapports=$(cnt '^tp_[0-9]+=trap$' "$C2ST/evasion_state.env")
+n_suspect=$(cnt '^tp_[0-9]+=suspect$' "$C2ST/evasion_state.env")
 n_live=$(cnt "LIVE_PORT: 127.0.0.2:7777" "$RES/c2.log")
 c2_bans=0
 for i in 4 5 6 7 8 9 10 11 12; do
     b=$(scan_count "127.0.0.$i"); c2_bans=$((c2_bans + b))
 done
-if [ "$n_trapports" -ge 4 ] && [ "$n_live" -ge 1 ] && [ "$c2_bans" -eq 0 ]; then
-    _ok "C2 census classificou ${n_trapports} portas como trap + porta REAL, com ZERO bans do pool"
+if [ "$n_trapports" -ge 2 ] && [ "$n_suspect" -ge 3 ] && [ "$n_live" -ge 1 ] && [ "$c2_bans" -eq 0 ]; then
+    _ok "C2 census: ${n_trapports} traps (cluster), ${n_suspect} suspeitas (canned/swallow), porta REAL ok, ZERO bans"
 else
-    _bad "C2 trapports=$n_trapports live=$n_live bans_pool=$c2_bans (esperado ≥4, ≥1, 0) — ver $RES/c2.log"
+    _bad "C2 trap=$n_trapports suspect=$n_suspect live=$n_live bans=$c2_bans (esperado ≥2, ≥3, ≥1, 0) — ver $RES/c2.log"
 fi
-grep -E "TRAP_|LIVE_PORT" "$RES/c2.log" | sed 's/^/      /' | head -8
+grep -E "TRAP_|PORT_SUSPECT|LIVE_PORT" "$RES/c2.log" | sed 's/^/      /' | head -8
 
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""; echo "═══ C3 — PORTA REAL ILIMITADA (defesa cega em serviço legítimo) ═══"

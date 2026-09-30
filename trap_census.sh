@@ -250,13 +250,18 @@ for p in "${ALIVE[@]}"; do
     h2=$(grep -oE 'hash2=[0-9a-f]*' <<< "$out" | cut -d= -f2)
     st_list_add "ptouch_$ip" "$p"
     if [ "$swallow" = 1 ] && { [ -z "$h1" ] || [ "$h1" = "none" ]; }; then
-        # http-like que aceita TCP e NUNCA responde HTTP = tarpit (engole requests)
-        st_set "tp_$p" "trap"
-        echo "TRAP_SWALLOW: ${TARGET}:${p} (aceita conexão e engole requests HTTP)"
+        # http-like que aceita TCP e NUNCA responde HTTP: pode ser tarpit
+        # OU serviço real não-HTTP sem banner (RDP e afins). Singleton fraco
+        # → SUSPECT (não exclui, não pula; a camada HTTP decide depois)
+        st_set "tp_$p" "suspect"
+        echo "PORT_SUSPECT: ${TARGET}:${p} (aceita conexão e engole requests HTTP — tarpit ou serviço não-HTTP)"
     elif [ -n "$h1" ] && [ "$h1" = "$h2" ] && [ "$h1" != "none" ]; then
-        # SINAL 2: paths distintos → resposta idêntica = canned
-        st_set "tp_$p" "trap"
-        echo "TRAP_CANNED: ${TARGET}:${p} (paths distintos, resposta idêntica)"
+        # paths distintos → resposta idêntica: canned. MAS singleton fraco —
+        # SPA catch-all e páginas de erro de proxy também são path-independentes
+        # (FALSO-POSITIVO comprovado em campo contra o 443 REAL do alvo).
+        # → SUSPECT (cluster entre portas é o único sinal forte de exclusão)
+        st_set "tp_$p" "suspect"
+        echo "PORT_SUSPECT: ${TARGET}:${p} (paths distintos, resposta idêntica — canned ou catch-all de app real)"
     else
         st_set "tp_$p" "live"
         st_list_add live_ports "$p"
@@ -265,8 +270,9 @@ for p in "${ALIVE[@]}"; do
 done
 
 n_trap=$(grep -cE '^tp_[0-9]+=trap$' "$STATE" 2>/dev/null); n_trap="${n_trap:-0}"
+n_suspect=$(grep -cE '^tp_[0-9]+=suspect$' "$STATE" 2>/dev/null); n_suspect="${n_suspect:-0}"
 n_live=$(grep -cE '^tp_[0-9]+=live$' "$STATE" 2>/dev/null); n_live="${n_live:-0}"
 n_closed=$(grep -cE '^tp_[0-9]+=closed$' "$STATE" 2>/dev/null); n_closed="${n_closed:-0}"
 learned=$(st_get porttouch_threshold_learned)
-echo "[census] ${TARGET}: traps=${n_trap} vivas=${n_live} fechadas=${n_closed} threshold_aprendido=${learned:-?} (cap atual: $(_eff_cap)) oraculos=${BAN_ORACLE}"
+echo "[census] ${TARGET}: traps=${n_trap} suspeitas=${n_suspect} vivas=${n_live} fechadas=${n_closed} threshold_aprendido=${learned:-?} (cap atual: $(_eff_cap)) oraculos=${BAN_ORACLE}"
 exit 0

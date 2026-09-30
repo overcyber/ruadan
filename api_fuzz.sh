@@ -52,6 +52,7 @@ if [ -z "$JWT" ]; then
     exit 0
 fi
 echo "[api-fuzz] JWT admin capturado (${#JWT} chars)"
+echo "JWT_ADMIN_CAPTURED: ${BASE_URL}/rest/user/login (token ${#JWT} chars — bypass SQLi no login, evidence credential)"
 
 AUTH="Authorization: Bearer ${JWT}"
 

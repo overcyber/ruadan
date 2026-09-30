@@ -54,6 +54,7 @@ LOGIN_RESP="$EV_BODY"
 JWT=$(echo "$LOGIN_RESP" | grep -oE '"token":"[^"]+"' | sed 's/"token":"//;s/"$//' | head -1)
 if [ -n "$JWT" ]; then
     echo "[api-extract] JWT admin capturado (${#JWT} chars) — endpoints autenticados serão testados"
+    echo "JWT_ADMIN_CAPTURED: ${BASE_URL}/rest/user/login (token ${#JWT} chars — bypass SQLi no login, evidence credential)"
 else
     echo "[api-extract] Sem JWT — testando apenas endpoints públicos"
 fi

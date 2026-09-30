@@ -33,11 +33,13 @@ ON_FILE=""; OX_FILE=""
 has_su=0
 args_rest=()
 # opções que consomem o próximo argumento
-declare -A OPT_TAKES=( [-oN]=1 [-oX]=1 [-oS]=1 [-oA]=1 [-p]=1 [--script]=1
-    [--host-timeout]=1 [--script-timeout]=1 [-D]=1 [-iL]=1 [--excludefile]=1
-    [-S]=1 [-e]=1 [--max-rate]=1 [--min-rate]=1 [--max-retries]=1 [--scan-delay]=1 )
+declare -A OPT_TAKES=( [-oN]=1 [-oX]=1 [-oS]=1 [-oA]=1 [-oG]=1 [-p]=1 [--script]=1
+    [--script-args]=1 [--host-timeout]=1 [--script-timeout]=1 [-D]=1 [-iL]=1 [--excludefile]=1
+    [--exclude-ports]=1 [-S]=1 [-e]=1 [--max-rate]=1 [--min-rate]=1 [--max-retries]=1
+    [--scan-delay]=1 [--max-scan-delay]=1 )
 i=0
 prev=""
+ORIG_ARGS=()
 for a in "$@"; do
     if [ -n "$prev" ]; then
         # valor da opção anterior
@@ -45,13 +47,20 @@ for a in "$@"; do
             -oN) ON_FILE="$a" ;;
             -oX) OX_FILE="$a" ;;
         esac
+        # outputs e portas não vão no resgate dirigido (a FASE 2 impõe os seus)
+        case "$prev" in
+            -oN|-oX|-oS|-oA|-oG|-p) prev=""; continue ;;
+        esac
+        ORIG_ARGS+=("$a")
         prev=""; continue
     fi
     case "$a" in
-        -sU) has_su=1; args_rest+=("$a") ;;
-        -*)  args_rest+=("$a")
+        -sU) has_su=1; ORIG_ARGS+=("$a") ;;
+        -oN|-oX|-oS|-oA|-oG|-p) prev="$a" ;;
+        -F)  : ;;   # fast-scan: irrelevante no resgate dirigido por -p
+        -*)  ORIG_ARGS+=("$a")
              if [ -n "${OPT_TAKES[$a]:-}" ]; then prev="$a"; fi ;;
-        *)   TARGET="$a" ;;   # posicional — o último vira o target
+        *)   TARGET="$a" ;;   # posicional — o último vira o target (não vai em ORIG_ARGS)
     esac
 done
 # TARGET foi sobrescrito a cada posicional: guardamos o último ✓ (nmap aceita
@@ -76,13 +85,14 @@ _ev_enabled() {
 
 count_open() {
     if [ -n "$ON_FILE" ] && [ -f "$ON_FILE" ]; then
-        grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open' "$ON_FILE" 2>/dev/null
+        # 'open' LIMPO (open|filtered de fonte banida é lixo — defesa derruba tudo)
+        grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open([^|]|$)' "$ON_FILE" 2>/dev/null
         return
     fi
     echo 0
 }
 
-if [ "$has_su" = 1 ] || ! _ev_enabled; then
+if [ "$has_su" = 1 ] && ! _ev_enabled; then
     exec "$NMAP_BIN" "$@"
 fi
 
@@ -169,6 +179,47 @@ expand_pool() {
 mapfile -t POOL < <(expand_pool "$IP_POOL")
 [ "${#POOL[@]}" -gt 0 ] || exit $rc
 
+# ── CACHE de resgate (F5): cada fase nmap do Ruadan repete o MESMO comando
+#    contra o MESMO alvo (83× no run 3) — cache por comando; hit = 0 requests
+CACHE_KEY=$(printf '%s|%s' "$TARGET" "$*" | md5sum | cut -d' ' -f1)
+CACHE_DIR="$TDIR/nmap_ev_cache"
+if [ -f "$CACHE_DIR/$CACHE_KEY.nmap" ]; then
+    [ -n "$ON_FILE" ] && cp "$CACHE_DIR/$CACHE_KEY.nmap" "$ON_FILE"
+    if [ -n "$OX_FILE" ] && [ -f "$CACHE_DIR/$CACHE_KEY.xml" ]; then cp "$CACHE_DIR/$CACHE_KEY.xml" "$OX_FILE"; fi
+    cat "$CACHE_DIR/$CACHE_KEY.nmap"
+    echo ""
+    echo "NMAP_IDENTITY_RESCUED: ${TARGET} (resgate em CACHE — comando repetido, 0 requests gastos)"
+    exit 0
+fi
+
+# ── RESGATE UDP (F2): -sU cego do IP fixo → re-executa o comando ORIGINAL com
+#    -S do pool (defesas anti-portscan contam TCP; UDP do pool é seguro)
+if [ "$has_su" = 1 ]; then
+    URESCUE_IP=""
+    for ip in "${POOL[@]}"; do
+        [ -n "$(st_get "offender_$ip")" ] && continue
+        URESCUE_IP="$ip"; break
+    done
+    [ -n "$URESCUE_IP" ] || exit $rc
+    UTMP="$(mktemp -d)"
+    "$NMAP_BIN" "$@" -S "$URESCUE_IP" -e "$IFACE" \
+        -oN "$UTMP/r.nmap" -oX "$UTMP/r.xml" >/dev/null 2>&1
+    u_open=0
+    [ -s "$UTMP/r.nmap" ] && u_open=$(grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open([^|]|$)' "$UTMP/r.nmap")
+    if [ "$u_open" -gt 0 ]; then
+        [ -n "$ON_FILE" ] && cp "$UTMP/r.nmap" "$ON_FILE"
+        [ -n "$OX_FILE" ] && cp "$UTMP/r.xml" "$OX_FILE"
+        cat "$UTMP/r.nmap"
+        echo ""
+        echo "NMAP_IDENTITY_RESCUED: ${TARGET} (${u_open} portas UDP resgatadas de ${URESCUE_IP}; original saiu cego)"
+        mkdir -p "$CACHE_DIR"
+        cp "$UTMP/r.nmap" "$CACHE_DIR/$CACHE_KEY.nmap" 2>/dev/null
+        cp "$UTMP/r.xml" "$CACHE_DIR/$CACHE_KEY.xml" 2>/dev/null
+    fi
+    rm -rf "$UTMP"
+    exit 0
+fi
+
 # portas comuns de lab/web (probe barato, sem nmap)
 COMMON_PORTS=(21 22 23 25 53 80 110 111 123 135 137 139 143 389 443 445 465 587 636 993 995 1433 1900 2049 3000 3128 3142 3306 3389 4443 5432 5555 5800 5900 5985 6379 7070 8000 8008 8080 8081 8443 8888 9000 902 9090 9091 9200 10000 11211 27017 51413)
 
@@ -236,7 +287,9 @@ EV_PORT_TOUCH_CAP="${EV_PORT_TOUCH_CAP:-}" \
 FOUND_PORTS=""
 while IFS='=' read -r k v; do
     case "$k" in
-        tp_*) case "$v" in trap|live) FOUND_PORTS="${FOUND_PORTS}${k#tp_}," ;; esac ;;
+        tp_*) case "$v" in live|suspect) FOUND_PORTS="${FOUND_PORTS}${k#tp_}," ;; esac ;;
+            # F1: trap (cluster confirmado) NÃO entra no resgate — o Ruadan
+            # não cria fases-junk contra tarpits; live+suspect = superfície real
     esac
 done < "$STATE" 2>/dev/null
 FOUND_PORTS=$(printf '%s\n' ${FOUND_PORTS} 2>/dev/null | tr ',' '\n' | sort -un | paste -sd, -)
@@ -275,15 +328,18 @@ for ((s = 0; s < ${#FP[@]}; s += CHUNK)); do
     ip=$(pick_ip)
     li=$((li + 1))
     cports="$(IFS=','; echo "${chunk[*]}")"
-    "$NMAP_BIN" -Pn -sV --version-light -p "$cports" -S "$ip" -e "$IFACE" \
+    # F3: preserva os args ORIGINAIS (scripts NSE como --script=vulners, -T, -O)
+    # com -p do lote + source-bind do pool — o vulscan roda o vulners DE VERDADE
+    "$NMAP_BIN" "${ORIG_ARGS[@]}" -p "$cports" -S "$ip" -e "$IFACE" \
         --host-timeout 90s -oN "$TMPD/c.nmap" -oX "$TMPD/c.xml" "$TARGET" >/dev/null 2>&1
     c_open=0
-    [ -s "$TMPD/c.nmap" ] && c_open=$(grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open' "$TMPD/c.nmap")
+    [ -s "$TMPD/c.nmap" ] && c_open=$(grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open([^|]|$)' "$TMPD/c.nmap")
     if [ "$c_open" -gt 0 ]; then
         cat "$TMPD/c.nmap" >> "$MERGED_N"
         n_ok=$((n_ok + c_open))
         # guarda o melhor XML válido (não concatenamos XML — inválido p/ parser)
-        if [ -z "$BEST_N" ] || [ "$c_open" -gt "$(grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open' "$BEST_N" 2>/dev/null || echo 0)" ]; then
+        _best_cnt=$(grep -cE '[0-9]+/(tcp|udp)[[:space:]]+open([^|]|$)' "$BEST_N" 2>/dev/null); _best_cnt="${_best_cnt:-0}"
+        if [ -z "$BEST_N" ] || [ "$c_open" -gt "$_best_cnt" ]; then
             BEST_N="$TMPD/c.nmap"; BEST_X="$TMPD/c.xml"
         fi
     fi
@@ -301,6 +357,10 @@ if [ "$n_ok" -gt 0 ] && [ -s "$MERGED_N" ]; then
     echo "NMAP_IDENTITY_RESCUED: ${TARGET} (${n_ok} portas resgatadas via ${li} identidade(s) do pool; scan original saiu cego por bloqueio de par origem->destino)"
     st_set "rescued_at" "$(date +%s)"
     req_bump "$((n_ok * 4))"
+    # F5: guarda no cache — repetições deste mesmo comando custam 0 requests
+    mkdir -p "$CACHE_DIR" 2>/dev/null
+    cp "$MERGED_N" "$CACHE_DIR/$CACHE_KEY.nmap" 2>/dev/null
+    [ -n "$BEST_X" ] && cp "$BEST_X" "$CACHE_DIR/$CACHE_KEY.xml" 2>/dev/null
 fi
 rm -rf "$TMPD"
 exit 0
