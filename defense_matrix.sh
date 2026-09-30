@@ -140,9 +140,9 @@ echo "|---|---|---|---|---|---|"
 for t in "${TARGETS[@]}"; do
     st="$OUT/$t/evasion_state.env"
     [ -f "$st" ] || continue
-    ntrap=$(grep -cE '^tp_[0-9]+=trap$' "$st" 2>/dev/null || echo 0)
-    nlive=$(grep -cE '^tp_[0-9]+=live$' "$st" 2>/dev/null || echo 0)
-    nclosed=$(grep -cE '^tp_[0-9]+=closed$' "$st" 2>/dev/null || echo 0)
+    ntrap=$(grep -cE '^tp_[0-9]+=trap$' "$st" 2>/dev/null); ntrap="${ntrap:-0}"
+    nlive=$(grep -cE '^tp_[0-9]+=live$' "$st" 2>/dev/null); nlive="${nlive:-0}"
+    nclosed=$(grep -cE '^tp_[0-9]+=closed$' "$st" 2>/dev/null); nclosed="${nclosed:-0}"
     ptl=$(grep -m1 '^porttouch_threshold_learned=' "$st" 2>/dev/null | cut -d= -f2-)
     noff=$(grep -cE '^offender_' "$st" 2>/dev/null || echo 0)
     echo "| ${t} | ${ntrap} | ${nlive} | ${nclosed} | ${ptl:-(desconhecido)} | ${noff} |"
@@ -153,11 +153,15 @@ echo ""
 _sec "3. QUALIFICAÇÃO DE COMPETÊNCIA DA DEFESA (Blue)"
 SCORE=0
 em_any=""
+TRAP_TOTAL=0
 for t in "${TARGETS[@]}"; do
     em=$(st_get "$t" emulated_ports)
     [ -n "$em" ] && em_any="1"
+    ntrap=$(grep -cE '^tp_[0-9]+=trap$' "$OUT/$t/evasion_state.env" 2>/dev/null); ntrap="${ntrap:-0}"
+    TRAP_TOTAL=$((TRAP_TOTAL + ntrap))
 done
-[ -n "$em_any" ] && SCORE=$((SCORE+1)) && echo "- [+1] Emulação de portas/serviços presente (fita confirmada)"
+[ -n "$em_any" ] && SCORE=$((SCORE+1)) && echo "- [+1] Emulação de portas/serviços presente (fita identificada e pulada)"
+[ "$TRAP_TOTAL" -ge 2 ] && SCORE=$((SCORE+1)) && echo "- [+1] Census adaptativo confirmou ${TRAP_TOTAL} portas-armadilha (mesma resposta em N portas)"
 [ -n "$xref" ]   && SCORE=$((SCORE+1)) && echo "- [+1] Fita centralizada (mesma hash em múltiplas portas/hosts)"
 [ "${ttl_hits:-0}" -gt 0 ] && SCORE=$((SCORE+1)) && echo "- [+1] Fita em hop/appliance distinto (TTL mismatch)"
 ips_any=""
@@ -175,6 +179,13 @@ for t in "${TARGETS[@]}"; do v=$(st_get "$t" cooldown_learned); [ -n "$v" ] && [
 sd_any=""
 for t in "${TARGETS[@]}"; do st_get "$t" defense_profile | grep -q "silent_drop" && sd_any="1"; done
 [ -n "$sd_any" ] && SCORE=$((SCORE+1)) && echo "- [+1] Bloqueio silencioso (tarpit/drop — difícil de detectar sem janela)"
+# escalonamento aprendido em campo: múltiplas ofensas do mesmo par
+esc_any=""
+for t in "${TARGETS[@]}"; do
+    n_off=$(grep -cE '^offender_' "$OUT/$t/evasion_state.env" 2>/dev/null); n_off="${n_off:-0}"
+    [ "$n_off" -ge 3 ] && esc_any="1"
+done
+[ -n "$esc_any" ] && SCORE=$((SCORE+1)) && echo "- [+1] Escalonamento de ofensas confirmado (≥3 IPs aposentados como reincidentes)"
 echo ""
 if   [ "$SCORE" -ge 9 ]; then NIVEL="ESPECIALISTA"
 elif [ "$SCORE" -ge 7 ]; then NIVEL="AVANÇADA"
