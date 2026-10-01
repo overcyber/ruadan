@@ -555,4 +555,25 @@ class ActionDispatcher:
 
         # Avaliação honesta do que esta ação realmente produziu (kill chain auditável)
         self._assess_evidence(res, findings_before)
+
+        # ── rev14 HONESTIDADE EXFILTRATE ─────────────────────────────────────
+        # ANTES: res.success=True incondicional no branch EXFILTRATE → a
+        # campanha terminava "objetivo alcançado" com evidence_level=enum_only
+        # e um arquivo "crown_jewel" ESCRITO PELO PRÓPRIO SISTEMA (a "flag"
+        # era a string literal 'Flag comprovada em <ip>' hasheada — evidência
+        # circular, zero interação com o alvo).
+        # AGORA: EXFILTRATE só é sucesso com evidência REAL (credential:
+        # shell/sessão/bypass confirmado). Sem isso a campanha termina com
+        # "objetivo NÃO alcançado" — fracasso honesto e documentado.
+        if action == RedAction.EXFILTRATE:
+            if res.evidence_level == "credential":
+                res.detail = (f"EXFILTRAÇÃO REAL: {res.evidence_detail}. "
+                             f"Evidência verificável em {res.evidence_files}.")
+            else:
+                res.success = False
+                res.detail = (f"Objetivo de exfiltração NÃO alcançado — "
+                             f"evidência real: {res.evidence_level} "
+                             f"({res.evidence_detail}). A campanha não termina "
+                             f"com auto-declaração; ver [OBJECTIVE] no "
+                             f"config.ini para definir o alvo de exfiltração.")
         return res
