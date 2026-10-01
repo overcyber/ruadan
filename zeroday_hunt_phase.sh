@@ -117,6 +117,7 @@ timeout $((WALLCLOCK + 240)) python3 -m services.pentest.app.zeroday_hunt \
     --model "$MODEL" \
     --rounds "$ROUNDS" \
     --per-host-budget "$PER_HOST" \
+    --llm-budget-reserve "${RUADAN_HUNT_LLM_RESERVE:-240}" \
     --wall-clock "$WALLCLOCK" \
     --runs-root "$HUNT_RUNS" 2>&1 | tail -20
 RC=$?
