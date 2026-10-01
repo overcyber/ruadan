@@ -40,10 +40,14 @@ SERVICE_TO_SKILLS = {
     "privesc": [],
     "webdav": ["offensive-rce", "offensive-file-upload"],
     "proxy": ["offensive-ssrf", "offensive-request-smuggling"],
+    # chaves emitidas pelo zeroday_hunt que antes eram mortas (não mapeavam
+    # nada e contribuiam zero skills silenciosamente):
+    "fuzz": ["offensive-parameter-pollution", "offensive-business-logic"],
+    "exploit_dev": ["offensive-rce"],
 }
-
-# Skills que SEMPRE fazem parte do contexto
-ALWAYS_INCLUDE = ["offensive-reporting", "offensive-fast-checking"]
+# NOTA: não existe ALWAYS_INCLUDE — a iteração anterior declarava
+# ["offensive-reporting", "offensive-fast-checking"] que NUNCA existiram como
+# SKILL.md (e o código nunca chamava a constante). Removido: código morto.
 
 
 def load_skill(name: str) -> str:
@@ -101,13 +105,15 @@ def build_skills_context(services: list[str], max_chars: int = 20000) -> str:
         return ""
 
     parts = ["\n\n=== METODOLOGIAS DE ATAQUE (use como guia de técnicas) ===\n"]
-    total = 0
+    total = len(parts[0])
     for name, content in skills:
-        # Trunca cada skill se o total estourar
-        if total + len(content) > max_chars:
-            content = content[:max_chars - total - 100] + "\n...[truncado]"
-        parts.append(f"--- {name.upper()} ---\n{content}\n")
-        total += len(content)
+        header = f"--- {name.upper()} ---\n"
+        # conta o HEADER no orçamento (antes só o corpo era contado — o
+        # contexto estourava max_chars em ~30%)
+        if total + len(content) + len(header) + 1 > max_chars:
+            content = content[:max(0, max_chars - total - len(header) - 20)] + "\n...[truncado]"
+        parts.append(f"{header}{content}\n")
+        total += len(content) + len(header) + 1
         if total >= max_chars:
             break
 
